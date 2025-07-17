@@ -1,30 +1,41 @@
 # Sustainability Report Compliance with NLP
 
-This project investigates the compliance of corporate sustainability reports with established reporting standards (such as GRI and ESRS) using modern Natural Language Processing (NLP) methods.
+This project analyzes the compliance of corporate sustainability reports with established reporting standards (such as GRI and ESRS) using modern Natural Language Processing (NLP) methods.
 
-The goal is to develop a tool that semantically analyzes the textual content of sustainability reports and maps relevant passages to corresponding reporting requirements. The approach includes document parsing, segment-level encoding using Transformer-based models (e.g. BERT), and multi-label classification or semantic similarity matching.
+The tool extracts requirements from standards and matches relevant passages from sustainability reports to these requirements using semantic similarity techniques.
 
 ## Key Features
 - PDF parsing and preprocessing pipeline
-- Segment-level semantic analysis
+- Automatic extraction of requirements from standards
+- Segment-level semantic analysis using Sentence-BERT
 - Matching report content to specific GRI/ESRS indicators
-- Evaluation using annotated data (optional)
-- Easily extendable NLP architecture (SBERT, QA, or RAG)
+- Export functionality for requirements, report paragraphs, and matching results
 
 ## Technologies Used
 - Python
 - HuggingFace Transformers
-- Sentence-BERT / BERT
+- Sentence-BERT
 - PyTorch
 - Scikit-learn
-- Streamlit (optional UI)
+- Tkinter (GUI)
 
 ## Project Structure
-- `data/` – input sustainability reports
-- `models/` – fine-tuned NLP models
-- `notebooks/` – experiments and prototyping
-- `src/` – main pipeline code
-- `app/` – (optional) Streamlit interface
+- `data/` – input sustainability reports and standards
+- `src/` – main pipeline code and GUI
+  - `extractor.py` – extracts requirements from standards
+  - `parser.py` – parses paragraphs from reports
+  - `embedder.py` – encodes text using Sentence-BERT
+  - `matcher.py` – matches requirements to report paragraphs
+  - `UI.py` – graphical user interface for the tool
+- `models/` – pre-trained or fine-tuned NLP models (optional)
+
+## How to Run
+1. Place the standard PDF and report PDF in the `data/` folder.
+2. Run the GUI:
+   ```bash
+   python src/UI.py
+   ```
+3. Use the interface to select the standard and report PDFs, perform matching, and export results.
 
 ## License
 MIT License
