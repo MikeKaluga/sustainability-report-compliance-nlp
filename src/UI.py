@@ -132,6 +132,12 @@ class ComplianceApp(tk.Tk):
         self.matches_export_menu.add_command(label="as PDF...", command=lambda: self.export_matches('pdf'))
         self.export_menu.add_cascade(label=translate("export_matches"), menu=self.matches_export_menu, state=tk.DISABLED)
 
+        # --- FAQ Menu ---
+        self.faq_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="FAQ", menu=self.faq_menu)
+        self.faq_menu.add_command(label=translate("help"), command=self._show_help)
+        self.faq_menu.add_command(label=translate("about"), command=self._show_about)
+
         # --- Language switch menu ---
         self.menu_bar.add_command(label="DE/EN", command=self._switch_language)
 
@@ -247,6 +253,59 @@ class ComplianceApp(tk.Tk):
         self.text_display.config(state=tk.DISABLED)
         self.text_display.tag_config("h1", font=("Segoe UI", 12, "bold"), spacing1=5, spacing3=5)
         self.text_display.tag_config("score", font=("Segoe UI", 10, "italic"), foreground="blue")
+
+    def _show_help(self):
+        """
+        Displays a help/FAQ window with instructions on how to use the application.
+        """
+        help_win = tk.Toplevel(self)
+        help_win.title(translate("help"))
+        help_win.geometry("600x500")
+        help_win.transient(self) # Keep window on top
+
+        text_area = Text(help_win, wrap=tk.WORD, font=("Segoe UI", 10), padx=10, pady=10)
+        text_area.pack(expand=True, fill=tk.BOTH)
+
+        # --- Help Content ---
+        text_area.insert(tk.END, translate("help_title") + "\n\n", "h1")
+        text_area.insert(tk.END, translate("help_step1_title") + "\n", "h2")
+        text_area.insert(tk.END, translate("help_step1_text") + "\n\n")
+        text_area.insert(tk.END, translate("help_step2_title") + "\n", "h2")
+        text_area.insert(tk.END, translate("help_step2_text") + "\n\n")
+        text_area.insert(tk.END, translate("help_step3_title") + "\n", "h2")
+        text_area.insert(tk.END, translate("help_step3_text") + "\n\n")
+        text_area.insert(tk.END, translate("help_step4_title") + "\n", "h2")
+        text_area.insert(tk.END, translate("help_step4_text") + "\n\n")
+        text_area.insert(tk.END, translate("help_step5_title") + "\n", "h2")
+        text_area.insert(tk.END, translate("help_step5_text") + "\n\n")
+
+        # --- Tag Configuration ---
+        text_area.tag_config("h1", font=("Segoe UI", 16, "bold"), spacing3=10)
+        text_area.tag_config("h2", font=("Segoe UI", 12, "bold"), spacing3=5)
+        text_area.config(state=tk.DISABLED) # Make read-only
+
+    def _show_about(self):
+        """
+        Displays an 'About' window with information about the application.
+        """
+        about_win = tk.Toplevel(self)
+        about_win.title(translate("about"))
+        about_win.geometry("500x350")
+        about_win.transient(self)
+
+        text_area = Text(about_win, wrap=tk.WORD, font=("Segoe UI", 10), padx=10, pady=10)
+        text_area.pack(expand=True, fill=tk.BOTH)
+
+        # --- About Content ---
+        text_area.insert(tk.END, translate("about_title") + "\n\n", "h1")
+        text_area.insert(tk.END, translate("about_text") + "\n\n")
+        text_area.insert(tk.END, translate("about_version") + "\n", "bold")
+        text_area.insert(tk.END, translate("about_author") + "\n", "bold")
+
+        # --- Tag Configuration ---
+        text_area.tag_config("h1", font=("Segoe UI", 16, "bold"), spacing3=10)
+        text_area.tag_config("bold", font=("Segoe UI", 10, "bold"))
+        text_area.config(state=tk.DISABLED)
 
     def _get_save_path(self, file_type, default_name):
         """
@@ -434,6 +493,10 @@ class ComplianceApp(tk.Tk):
         self.export_menu.entryconfig(1, label=translate("export_paras"))
         self.export_menu.entryconfig(2, label=translate("export_matches"))
         
+        # Update FAQ menu's sub-items
+        self.faq_menu.entryconfig(0, label=translate("help"))
+        self.faq_menu.entryconfig(1, label=translate("about"))
+
         self.list_container.config(text=translate("requirements_from_standard"))
         self.text_container.config(text=translate("requirement_text_and_matches"))
 
