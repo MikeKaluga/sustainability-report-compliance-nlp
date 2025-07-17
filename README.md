@@ -32,12 +32,18 @@ The tool extracts requirements from standards and matches relevant passages from
   - Adapting extractors to specific standards such as GRI or ESRS
 
 ## How to Run
-1. Place the standard PDF and report PDF in the `data/` folder.
-2. Run the GUI:
+1. **Set up a virtual environment** (recommended):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+2. Place the standard PDF and report PDF in the `data/` folder.
+3. Run the GUI:
    ```bash
    python src/UI.py
    ```
-3. Use the interface to select the standard and report PDFs, perform matching, and export results.
+4. Use the interface to select the standard and report PDFs, perform matching, and export results.
 
 ## License
 MIT License
