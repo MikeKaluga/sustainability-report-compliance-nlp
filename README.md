@@ -27,7 +27,9 @@ The tool extracts requirements from standards and matches relevant passages from
   - `embedder.py` – encodes text using Sentence-BERT
   - `matcher.py` – matches requirements to report paragraphs
   - `UI.py` – graphical user interface for the tool
-- `models/` – pre-trained or fine-tuned NLP models (optional)
+- `scripts/` – optional scripts for:
+  - Extracting requirements using various LLMs (e.g., institutionally hosted large LLMs, internationally available LLMs like ChatGPT, or small local LLMs like T5)
+  - Adapting extractors to specific standards such as GRI or ESRS
 
 ## How to Run
 1. Place the standard PDF and report PDF in the `data/` folder.
