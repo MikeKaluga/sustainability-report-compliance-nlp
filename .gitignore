@@ -5,6 +5,7 @@ __pycache__/
 .env
 data/
 notebooks/
+screenshots/
 
 # Logs
 *.log
