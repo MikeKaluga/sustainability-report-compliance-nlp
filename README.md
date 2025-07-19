@@ -1,4 +1,4 @@
-# Sustainability Report Compliance with NLP
+# Sustainability Report Compliance with NLP (Version 0.3)
 
 This project analyzes the compliance of corporate sustainability reports with established reporting standards (such as GRI and ESRS) using modern Natural Language Processing (NLP) methods.
 
@@ -9,7 +9,9 @@ The tool extracts requirements from standards and matches relevant passages from
 - Automatic extraction of requirements from standards
 - Segment-level semantic analysis using Sentence-BERT
 - Matching report content to specific GRI/ESRS indicators
+- Multi-report analysis: Compare multiple sustainability reports against the same standard via the GUI
 - Export functionality for requirements, report paragraphs, and matching results
+- Advanced filtering of irrelevant content (e.g., footers, headers)
 
 ## Technologies Used
 - Python
@@ -26,7 +28,8 @@ The tool extracts requirements from standards and matches relevant passages from
   - `parser.py` – parses paragraphs from reports
   - `embedder.py` – encodes text using Sentence-BERT
   - `matcher.py` – matches requirements to report paragraphs
-  - `UI.py` – graphical user interface for the tool
+  - `UI.py` – graphical user interface for single-report analysis
+  - `MultiReporterUI.py` – graphical user interface for multi-report analysis
 - `scripts/` – optional scripts for:
   - Extracting requirements using various LLMs (e.g., institutionally hosted large LLMs, internationally available LLMs like ChatGPT, or small local LLMs like T5)
   - Adapting extractors to specific standards such as GRI or ESRS
@@ -38,12 +41,16 @@ The tool extracts requirements from standards and matches relevant passages from
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
-2. Place the standard PDF and report PDF in the `data/` folder.
+2. Place the standard PDF and report PDFs in the `data/` folder.
 3. Run the GUI:
    ```bash
-   python src/UI.py
+   python src/UI.py  # For single-report analysis
+   python src/MultiReporterUI.py  # For multi-report analysis
    ```
-4. Use the interface to select the standard and report PDFs, perform matching, and export results.
+4. Use the interface to:
+   - Select the standard and one or more report PDFs.
+   - Perform matching for individual or multiple reports.
+   - Export results for further analysis.
 
 ## License
 MIT License
