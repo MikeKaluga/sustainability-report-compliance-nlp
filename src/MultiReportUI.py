@@ -1,3 +1,20 @@
+"""
+This script provides a graphical user interface (GUI) for analyzing compliance of sustainability reports
+against a given standard. It allows users to select a standard PDF and multiple report PDFs, and then
+performs an analysis to match requirements from the standard to the content of the reports.
+
+Key Features:
+- Extracts requirements from a standard PDF.
+- Processes multiple sustainability reports to extract paragraphs.
+- Embeds text using Sentence-BERT (SBERT) and matches requirements to report content using cosine similarity.
+- Displays summary statistics of the analysis in a user-friendly interface.
+
+Usage:
+- Run the script to launch the GUI.
+- Use the interface to select a standard PDF and multiple report PDFs.
+- Click "Run Analysis" to perform the compliance analysis and view the results.
+"""
+
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import os

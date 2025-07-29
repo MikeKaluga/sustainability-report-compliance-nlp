@@ -1,3 +1,16 @@
+"""
+This script provides functionality to match requirements to report paragraphs based on their embeddings.
+It uses cosine similarity to identify the most relevant paragraphs for each requirement.
+
+Key Features:
+- Computes cosine similarity between requirement embeddings and report paragraph embeddings.
+- Returns the top-k most similar paragraphs for each requirement along with their similarity scores.
+
+Usage:
+- Use the `match_requirements_to_report` function to find matches between requirements and report content.
+- Input embeddings should be provided as PyTorch tensors, and the output is a list of matches for each requirement.
+"""
+
 from sklearn.metrics.pairwise import cosine_similarity
 
 

@@ -1,3 +1,17 @@
+"""
+This script provides functionality for embedding text segments using Sentence-BERT (SBERT).
+It leverages a pre-trained SBERT model to convert text into numerical embeddings, which can be
+used for various natural language processing tasks such as similarity computation or clustering.
+
+Key Features:
+- Uses a pre-trained multilingual SBERT model by default.
+- Encodes text segments into high-dimensional embeddings suitable for downstream tasks.
+
+Usage:
+- Instantiate the `SBERTEmbedder` class with an optional model name.
+- Use the `encode` method to convert a list of text segments into embeddings.
+"""
+
 from sentence_transformers import SentenceTransformer
 
 

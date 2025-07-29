@@ -1,3 +1,19 @@
+"""
+This script provides functionality to extract and process text from sustainability report PDFs.
+It includes methods to clean the text, identify specific requirements based on predefined patterns,
+and extract relevant sections corresponding to these requirements.
+
+Key Features:
+- Removes common footer patterns from PDF pages.
+- Cleans and consolidates text extracted from PDFs.
+- Identifies and categorizes requirements based on ESRS and GRI standards.
+- Extracts and processes text segments corresponding to identified requirements.
+
+Usage:
+- Use `extract_requirements_from_standard_pdf(pdf_path)` as the main entry point to process a PDF file.
+- The output is a dictionary mapping requirement codes to their corresponding text segments.
+"""
+
 import re
 import pdfplumber
 

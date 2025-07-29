@@ -1,3 +1,19 @@
+"""
+This script serves as the main entry point for analyzing the compliance of sustainability reports
+with established standards. It extracts requirements from a standard PDF, parses paragraphs from
+a report PDF, and matches the requirements to the report content using semantic similarity.
+
+Key Features:
+- Extracts requirements from a standard PDF.
+- Parses paragraphs from a report PDF.
+- Embeds text using Sentence-BERT (SBERT) and matches requirements to report paragraphs.
+- Displays the matching results, including similarity scores and matched paragraphs.
+
+Usage:
+- Define the paths to the standard and report PDFs in the `standard_file` and `report_file` variables.
+- Run the script to view the matching results in the console.
+"""
+
 import warnings
 from src.parser import (
     extract_paragraphs_from_pdf,

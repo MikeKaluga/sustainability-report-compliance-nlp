@@ -1,3 +1,18 @@
+"""
+This script provides translation functionality for a multilingual application.
+It includes a dictionary of translations for English and German, and utility functions
+to retrieve translated text and switch between languages.
+
+Key Features:
+- Stores translations for various UI elements and messages in English and German.
+- Supports dynamic placeholder replacement in translated strings.
+- Allows toggling between English ('en') and German ('de') languages.
+
+Usage:
+- Use `translate(key, **kwargs)` to retrieve the translated text for a given key.
+- Call `switch_language()` to toggle the current language between English and German.
+"""
+
 # Dictionary containing translations for different languages
 TRANSLATIONS = {
     "en": {

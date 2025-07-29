@@ -1,3 +1,22 @@
+"""
+This script provides a graphical user interface (GUI) for analyzing the compliance of sustainability reports
+with established standards. It allows users to extract requirements from a standard PDF, parse paragraphs
+from a report PDF, and match the requirements to the report content using semantic similarity.
+
+Key Features:
+- Extracts requirements from a standard PDF and displays them in a list.
+- Parses paragraphs from a report PDF and prepares them for analysis.
+- Matches requirements to report paragraphs using Sentence-BERT embeddings and cosine similarity.
+- Exports extracted requirements, report paragraphs, and matching results in CSV, Excel, or PDF formats.
+- Supports multilingual functionality (English and German) with a language toggle.
+
+Usage:
+- Run the script to launch the GUI.
+- Use the interface to select a standard PDF and a report PDF.
+- Perform matching and view results, including similarity scores and matched paragraphs.
+- Export the results for further analysis or reporting.
+"""
+
 import tkinter as tk
 from tkinter import filedialog, ttk, Listbox, Scrollbar, messagebox, Text
 import os

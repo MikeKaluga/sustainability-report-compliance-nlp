@@ -1,3 +1,19 @@
+"""
+This script provides functionality for extracting and cleaning text from PDF documents.
+It is designed to process sustainability reports by segmenting the text into meaningful paragraphs
+while filtering out noise such as metadata, headers, and irrelevant content.
+
+Key Features:
+- Cleans raw text by normalizing line breaks and removing unnecessary spaces.
+- Extracts paragraphs based on double line breaks or sentence-based segmentation as a fallback.
+- Filters paragraphs based on minimum word/character count and optional noise patterns.
+- Provides debug mode for detailed statistics during text extraction.
+
+Usage:
+- Use `extract_paragraphs_from_pdf(pdf_path, ...)` to extract cleaned paragraphs from a PDF file.
+- Customize parameters like `min_words`, `min_chars`, and `noise_filter` to suit specific requirements.
+"""
+
 import pdfplumber
 import re
 
