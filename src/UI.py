@@ -21,6 +21,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk, Listbox, Scrollbar, messagebox, Text
 import os
 import warnings
+import requests
 
 # --- Core functionality imports ---
 from extractor import extract_requirements_from_standard_pdf  # Extract requirements from a standard PDF
@@ -28,6 +29,7 @@ from parser import extract_paragraphs_from_pdf  # Extract paragraphs from a repo
 from embedder import SBERTEmbedder  # Create embeddings using Sentence-BERT
 from matcher import match_requirements_to_report  # Match requirements to report paragraphs
 from translations import translate, switch_language  # Import the translation functions
+from analyze import run_llm_analysis
 
 # --- Export functionality imports ---
 try:
@@ -115,6 +117,13 @@ class ComplianceApp(tk.Tk):
         # --- Right pane: Requirement text and matches ---
         self.text_container = ttk.LabelFrame(bottom_frame, text=translate("requirement_text_and_matches"), padding="5")
         bottom_frame.add(self.text_container, weight=3)
+
+        # Frame for buttons above the text display
+        action_frame = ttk.Frame(self.text_container)
+        action_frame.pack(fill=tk.X, pady=(0, 5))
+
+        self.analyze_llm_btn = ttk.Button(action_frame, text="Analyze with LLM", command=self.run_llm_analysis, state=tk.DISABLED)
+        self.analyze_llm_btn.pack(side=tk.RIGHT)
 
         self.text_display = Text(self.text_container, wrap=tk.WORD, state=tk.DISABLED, font=("Segoe UI", 10))
         self.text_display.pack(fill=tk.BOTH, expand=True)
@@ -264,14 +273,25 @@ class ComplianceApp(tk.Tk):
             match_list = self.matches[index]
             if not match_list:
                 self.text_display.insert(tk.END, translate("no_matches_found"))
+                self.analyze_llm_btn.config(state=tk.DISABLED)
             else:
                 for report_idx, score in match_list:
                     self.text_display.insert(tk.END, f"(Score: {score:.2f})\n", "score")
                     self.text_display.insert(tk.END, f"{self.report_paras[report_idx]}\n\n")
+                self.analyze_llm_btn.config(state=tk.NORMAL)
+        else:
+            self.analyze_llm_btn.config(state=tk.DISABLED)
 
         self.text_display.config(state=tk.DISABLED)
         self.text_display.tag_config("h1", font=("Segoe UI", 12, "bold"), spacing1=5, spacing3=5)
         self.text_display.tag_config("score", font=("Segoe UI", 10, "italic"), foreground="blue")
+
+    def run_llm_analysis(self):
+        """
+        Takes the selected requirement and its top matches, sends them to a local LLM for analysis,
+        and displays the result.
+        """
+        run_llm_analysis(self, self.req_listbox, self.requirements_data, self.matches, self.report_paras, self.status_label, self.update_idletasks, translate)
 
     def _show_help(self):
         """
@@ -297,6 +317,8 @@ class ComplianceApp(tk.Tk):
         text_area.insert(tk.END, translate("help_step4_text") + "\n\n")
         text_area.insert(tk.END, translate("help_step5_title") + "\n", "h2")
         text_area.insert(tk.END, translate("help_step5_text") + "\n\n")
+        text_area.insert(tk.END, translate("help_step6_title") + "\n", "h2")
+        text_area.insert(tk.END, translate("help_step6_text") + "\n\n")
 
         # --- Tag Configuration ---
         text_area.tag_config("h1", font=("Segoe UI", 16, "bold"), spacing3=10)

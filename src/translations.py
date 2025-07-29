@@ -66,11 +66,13 @@ TRANSLATIONS = {
         "help_step2_title": "Step 2: Select Report",
         "help_step2_text": "After the standard is loaded, click 'Select Report' and choose the sustainability report (PDF) you want to analyze. The application will parse the report into individual paragraphs.",
         "help_step3_title": "Step 3: Run Matching",
-        "help_step3_text": "Click 'Run Matching' to start the semantic analysis. The application compares each requirement from the standard with all paragraphs from the report to find the most relevant matches.",
+        "help_step3_text": "Click 'Run Matching' to start the semantic analysis. The application compares each requirement from the standard with all paragraphs from the report to find the most relevant matches.",   
         "help_step4_title": "Step 4: View Results",
         "help_step4_text": "Click on a requirement in the list on the left. The full text of the requirement and the top five matching paragraphs from the report, along with their similarity scores, will be displayed on the right.",
-        "help_step5_title": "Step 5: Export Results",
-        "help_step5_text": "Use the 'Export' menu to save the extracted requirements, the report paragraphs, or the complete matching results as a CSV, Excel, or PDF file.",
+        "help_step5_title": "Step 5: Analyze with LLM",
+        "help_step5_text": "After selecting a requirement, click 'Analyze with LLM' to perform a qualitative analysis using a local Llama3 model. The analysis will determine whether the requirement is fulfilled and provide a justification.",
+        "help_step6_title": "Step 6: Export Results",
+        "help_step6_text": "Use the 'Export' menu to save the extracted requirements, the report paragraphs, or the complete matching results as a CSV, Excel, or PDF file.",
 
         # --- About Window ---
         "about_title": "About the app for investigating the compliance of sustainability reports with reporting standards using NLP methods",
@@ -132,8 +134,10 @@ TRANSLATIONS = {
         "help_step3_text": "Klicken Sie auf 'Abgleich durchführen', um die semantische Analyse zu starten. Die Anwendung vergleicht jede Anforderung aus dem Standard mit allen Absätzen aus dem Bericht und findet die relevantesten Übereinstimmungen.",
         "help_step4_title": "Schritt 4: Ergebnisse ansehen",
         "help_step4_text": "Klicken Sie auf eine Anforderung in der linken Liste. Rechts werden der vollständige Text der Anforderung sowie die fünf am besten passenden Absätze aus dem Bericht samt Ähnlichkeits-Score angezeigt.",
-        "help_step5_title": "Schritt 5: Ergebnisse exportieren",
-        "help_step5_text": "Nutzen Sie das 'Export'-Menü, um die extrahierten Anforderungen, die Berichtsabsätze oder die vollständigen Übereinstimmungs-Ergebnisse als CSV, Excel oder PDF zu speichern.",
+        "help_step5_title": "Schritt 5: Mit LLM analysieren",
+        "help_step5_text": "Nachdem Sie eine Anforderung ausgewählt haben, klicken Sie auf 'Mit LLM analysieren', um eine qualitative Analyse mit einem lokalen Llama3-Modell durchzuführen. Die Analyse bestimmt, ob die Anforderung erfüllt ist, und liefert eine Begründung.",
+        "help_step6_title": "Schritt 6: Ergebnisse exportieren",
+        "help_step6_text": "Nutzen Sie das 'Export'-Menü, um die extrahierten Anforderungen, die Berichtsabsätze oder die vollständigen Übereinstimmungs-Ergebnisse als CSV, Excel oder PDF zu speichern.",
 
         # --- About Window ---
         "about_title": "Über die App zur Untersuchung der Übereinstimmung von Nachhaltigkeitsberichten mit Berichtsstandards unter Verwendung von NLP-Methoden",
