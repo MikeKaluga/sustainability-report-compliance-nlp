@@ -17,6 +17,7 @@ The tool extracts requirements from standards and matches relevant passages from
   - LLM analysis results
 - Multi-report analysis: Compare multiple sustainability reports against the same standard via the GUI
 - Advanced filtering of irrelevant content (e.g., footers, headers)
+- Multilingual support (English and German) with a language toggle
 
 ## Technologies Used
 - Python
@@ -37,6 +38,8 @@ The tool extracts requirements from standards and matches relevant passages from
   - `analyze.py` – performs qualitative analysis using a local LLM
   - `file_handler.py` – handles file selection and processing
   - `exporter.py` – handles exporting data to CSV, Excel, and PDF formats
+  - `language_manager.py` – manages language switching and UI text updates
+  - `menu_manager.py` – configures the export menu
   - `UI.py` – graphical user interface for single-report analysis
   - `MultiReporterUI.py` – graphical user interface for multi-report analysis
 - `scripts/` – optional scripts

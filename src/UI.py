@@ -25,8 +25,11 @@ import warnings
 # --- Core functionality imports ---
 from embedder import SBERTEmbedder  # Create embeddings using Sentence-BERT
 from matcher import match_requirements_to_report  # Match requirements to report paragraphs
-from translations import translate, switch_language  # Import the translation functions
+from translations import translate  # Import the translation functions
 from analyze import run_llm_analysis  # Analyze matching results with a local LLM
+from help_info import show_help, show_about  # Import the help and about functions
+from language_manager import switch_language_and_update_ui  # Import the new function
+from menu_manager import configure_export_menu  # Import the new function
 
 # --- File and Export functionality imports ---
 from file_handler import select_standard_file, select_report_file
@@ -136,37 +139,17 @@ class ComplianceApp(tk.Tk):
 
         # --- Export menu ---
         self.export_menu = tk.Menu(self.menu_bar, tearoff=0)
+        configure_export_menu(self, self.export_menu)  # Delegate export menu configuration
         self.menu_bar.add_cascade(label="Export", menu=self.export_menu)
-
-        # Submenu for exporting requirements
-        self.req_export_menu = tk.Menu(self.export_menu, tearoff=0)
-        self.req_export_menu.add_command(label="as CSV...", command=lambda: export_requirements(self.requirements_data, 'csv'), state=tk.NORMAL if is_export_available('csv') else tk.DISABLED)
-        self.req_export_menu.add_command(label="as Excel...", command=lambda: export_requirements(self.requirements_data, 'excel'), state=tk.NORMAL if is_export_available('excel') else tk.DISABLED)
-        self.req_export_menu.add_command(label="as PDF...", command=lambda: export_requirements(self.requirements_data, 'pdf'), state=tk.NORMAL if is_export_available('pdf') else tk.DISABLED)
-        self.export_menu.add_cascade(label=translate("export_reqs"), menu=self.req_export_menu, state=tk.DISABLED)
-
-        # Submenu for exporting report paragraphs
-        self.paras_export_menu = tk.Menu(self.export_menu, tearoff=0)
-        self.paras_export_menu.add_command(label="as CSV...", command=lambda: export_report_paras(self.report_paras, 'csv'), state=tk.NORMAL if is_export_available('csv') else tk.DISABLED)
-        self.paras_export_menu.add_command(label="as Excel...", command=lambda: export_report_paras(self.report_paras, 'excel'), state=tk.NORMAL if is_export_available('excel') else tk.DISABLED)
-        self.paras_export_menu.add_command(label="as PDF...", command=lambda: export_report_paras(self.report_paras, 'pdf'), state=tk.NORMAL if is_export_available('pdf') else tk.DISABLED)
-        self.export_menu.add_cascade(label=translate("export_paras"), menu=self.paras_export_menu, state=tk.DISABLED)
-
-        # Submenu for exporting matching results
-        self.matches_export_menu = tk.Menu(self.export_menu, tearoff=0)
-        self.matches_export_menu.add_command(label="as CSV...", command=lambda: export_matches(self.matches, self.requirements_data, self.report_paras, 'csv'), state=tk.NORMAL if is_export_available('csv') else tk.DISABLED)
-        self.matches_export_menu.add_command(label="as Excel...", command=lambda: export_matches(self.matches, self.requirements_data, self.report_paras, 'excel'), state=tk.NORMAL if is_export_available('excel') else tk.DISABLED)
-        self.matches_export_menu.add_command(label="as PDF...", command=lambda: export_matches(self.matches, self.requirements_data, self.report_paras, 'pdf'), state=tk.NORMAL if is_export_available('pdf') else tk.DISABLED)
-        self.export_menu.add_cascade(label=translate("export_matches"), menu=self.matches_export_menu, state=tk.DISABLED)
 
         # --- FAQ Menu ---
         self.faq_menu = tk.Menu(self.menu_bar, tearoff=0)
         self.menu_bar.add_cascade(label="FAQ", menu=self.faq_menu)
-        self.faq_menu.add_command(label=translate("help"), command=self._show_help)
-        self.faq_menu.add_command(label=translate("about"), command=self._show_about)
+        self.faq_menu.add_command(label=translate("help"), command=lambda: show_help(self))
+        self.faq_menu.add_command(label=translate("about"), command=lambda: show_about(self))
 
         # --- Language switch menu ---
-        self.menu_bar.add_command(label="DE/EN", command=self._switch_language)
+        self.menu_bar.add_command(label="DE/EN", command=lambda: switch_language_and_update_ui(self))
 
         # Show warning only if no export formats are available at all
         if not is_export_available('csv') and not is_export_available('excel') and not is_export_available('pdf'):
@@ -221,103 +204,6 @@ class ComplianceApp(tk.Tk):
         self.text_display.config(state=tk.DISABLED)
         self.text_display.tag_config("h1", font=("Segoe UI", 12, "bold"), spacing1=5, spacing3=5)
         self.text_display.tag_config("score", font=("Segoe UI", 10, "italic"), foreground="blue")
-
-    def _show_help(self):
-        """
-        Displays a help/FAQ window with instructions on how to use the application.
-        """
-        help_win = tk.Toplevel(self)
-        help_win.title(translate("help"))
-        help_win.geometry("600x500")
-        help_win.transient(self)  # Keep window on top
-
-        text_area = Text(help_win, wrap=tk.WORD, font=("Segoe UI", 10), padx=10, pady=10)
-        text_area.pack(expand=True, fill=tk.BOTH)
-
-        # --- Help Content ---
-        text_area.insert(tk.END, translate("help_title") + "\n\n", "h1")
-        text_area.insert(tk.END, translate("help_step1_title") + "\n", "h2")
-        text_area.insert(tk.END, translate("help_step1_text") + "\n\n")
-        text_area.insert(tk.END, translate("help_step2_title") + "\n", "h2")
-        text_area.insert(tk.END, translate("help_step2_text") + "\n\n")
-        text_area.insert(tk.END, translate("help_step3_title") + "\n", "h2")
-        text_area.insert(tk.END, translate("help_step3_text") + "\n\n")
-        text_area.insert(tk.END, translate("help_step4_title") + "\n", "h2")
-        text_area.insert(tk.END, translate("help_step4_text") + "\n\n")
-        text_area.insert(tk.END, translate("help_step5_title") + "\n", "h2")
-        text_area.insert(tk.END, translate("help_step5_text") + "\n\n")
-        text_area.insert(tk.END, translate("help_step6_title") + "\n", "h2")
-        text_area.insert(tk.END, translate("help_step6_text") + "\n\n")
-        text_area.insert(tk.END, translate("help_step7_title") + "\n", "h2")
-        text_area.insert(tk.END, translate("help_step7_text") + "\n\n")
-
-        # --- Tag Configuration ---
-        text_area.tag_config("h1", font=("Segoe UI", 16, "bold"), spacing3=10)
-        text_area.tag_config("h2", font=("Segoe UI", 12, "bold"), spacing3=5)
-        text_area.config(state=tk.DISABLED)  # Make read-only
-
-    def _show_about(self):
-        """
-        Displays an 'About' window with information about the application.
-        """
-        about_win = tk.Toplevel(self)
-        about_win.title(translate("about"))
-        about_win.geometry("500x350")
-        about_win.transient(self)
-
-        text_area = Text(about_win, wrap=tk.WORD, font=("Segoe UI", 10), padx=10, pady=10)
-        text_area.pack(expand=True, fill=tk.BOTH)
-
-        # --- About Content ---
-        text_area.insert(tk.END, translate("about_title") + "\n\n", "h1")
-        text_area.insert(tk.END, translate("about_text") + "\n\n")
-        text_area.insert(tk.END, translate("about_version") + "\n", "bold")
-        text_area.insert(tk.END, translate("about_author") + "\n", "bold")
-
-        # --- Tag Configuration ---
-        text_area.tag_config("h1", font=("Segoe UI", 16, "bold"), spacing3=10)
-        text_area.tag_config("bold", font=("Segoe UI", 10, "bold"))
-        text_area.config(state=tk.DISABLED)
-
-    def _switch_language(self):
-        """
-        Switches the application language and updates all UI elements.
-        """
-        switch_language()
-        self._update_ui_texts()
-
-    def _update_ui_texts(self):
-        """
-        Updates all UI elements with the current language.
-        """
-        self.title(translate("app_title"))
-        self.select_standard_btn.config(text=translate("select_standard"))
-        self.select_report_btn.config(text=translate("select_report"))
-        self.run_match_btn.config(text=translate("run_matching"))
-        self.export_llm_btn.config(text=translate("export_llm_analysis"))
-        self.analyze_llm_btn.config(text=translate("analyze_with_llm"))
-        
-        # Update status label based on current state
-        if not self.standard_pdf_path:
-            self.status_label.config(text=translate("initial_status"))
-        elif not self.report_pdf_path:
-            self.status_label.config(text=translate("standard_ready"))
-        elif not self.matches:
-            self.status_label.config(text=translate("report_ready"))
-        else:
-            self.status_label.config(text=translate("matching_completed_label"))
-
-        # Update labels of the sub-menus inside the "Export" menu
-        self.export_menu.entryconfig(0, label=translate("export_reqs"))
-        self.export_menu.entryconfig(1, label=translate("export_paras"))
-        self.export_menu.entryconfig(2, label=translate("export_matches"))
-        
-        # Update FAQ menu's sub-items
-        self.faq_menu.entryconfig(0, label=translate("help"))
-        self.faq_menu.entryconfig(1, label=translate("about"))
-
-        self.list_container.config(text=translate("requirements_from_standard"))
-        self.text_container.config(text=translate("requirement_text_and_matches"))
 
 if __name__ == '__main__':
     if not os.path.exists('data'):
