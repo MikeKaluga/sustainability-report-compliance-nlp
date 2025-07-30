@@ -64,10 +64,24 @@ def _export_df_to_pdf(df, path, title):
     styles.add(ParagraphStyle(name='ReqCode', fontName='Helvetica-Bold', fontSize=12, spaceAfter=6))
     styles.add(ParagraphStyle(name='MatchScore', fontName='Helvetica-Oblique', fontSize=10, spaceAfter=4, textColor=colors.darkblue))
     styles.add(ParagraphStyle(name='SubHeading', fontName='Helvetica-Bold', fontSize=10, spaceBefore=8, spaceAfter=4, textColor=colors.darkslategray))
+    styles.add(ParagraphStyle(name='LLMAnalysis', fontName='Helvetica', fontSize=10, spaceAfter=4, leftIndent=10))
     
     elements = [Paragraph(title, styles['h1']), Spacer(1, 24)]
 
-    if 'Requirement Code' in df.columns and 'LLM Analysis' not in df.columns:
+    if 'Requirement Code' in df.columns and 'LLM Analysis' in df.columns and 'Avg Max Score' in df.columns:
+        # This is the multi-report summary export
+        for _, row in df.iterrows():
+            elements.extend([
+                Paragraph(f"Requirement: {row['Requirement Code']}", styles['ReqCode']),
+                Paragraph(row['Requirement Text'], styles['Normal']),
+                Spacer(1, 6),
+                Paragraph(f"<b>Avg Max Score:</b> {row['Avg Max Score']}", styles['Normal']),
+                Paragraph(f"<b>Reports Covered:</b> {row['Reports Covered']}", styles['Normal']),
+                Paragraph("<b>LLM Analysis:</b>", styles['SubHeading']),
+                Paragraph(row['LLM Analysis'], styles['LLMAnalysis']),
+                Spacer(1, 24)
+            ])
+    elif 'Requirement Code' in df.columns and 'LLM Analysis' not in df.columns:
         grouped = df.groupby(['Requirement Code', 'Requirement Text'])
         for (code, text), group in grouped:
             elements.extend([

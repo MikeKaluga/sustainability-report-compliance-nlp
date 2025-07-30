@@ -19,6 +19,7 @@ Usage:
 import requests
 import tkinter as tk
 from tkinter import messagebox, Text
+import re
 
 def get_llm_analysis(requirement_text, paragraphs):
     """
@@ -59,6 +60,43 @@ Paragraphs:
         return response.json().get("response", "No response text found.")
     except requests.exceptions.RequestException as e:
         return f"LLM Connection Error: Could not connect to the local LLM. Please ensure Ollama is running. Error: {e}"
+
+def analyze_matches_with_llm(matches, requirements_texts, report_paras):
+    """
+    Analyzes a list of matches using an LLM and enriches them with the LLM's score.
+
+    Args:
+        matches (list): The list of matches from SBERT. Format: [[(para_idx, sbert_score), ...], ...]
+        requirements_texts (list): A list of all requirement texts.
+        report_paras (list): A list of all paragraphs from the report.
+
+    Returns:
+        list: The enriched matches. Format: [[(para_idx, sbert_score, llm_score, llm_explanation), ...], ...]
+    """
+    enriched_matches = []
+    for i, req_matches in enumerate(matches):
+        if not req_matches:
+            enriched_matches.append([])
+            continue
+
+        # We only analyze the top match (top_k=1 was used)
+        top_match = req_matches[0]
+        para_idx, sbert_score = top_match
+        
+        requirement_text = requirements_texts[i]
+        paragraph_text = report_paras[para_idx]
+
+        llm_response = get_llm_analysis(requirement_text, [paragraph_text])
+
+        # Parse the LLM response to get the score
+        score = 0.0
+        match = re.search(r"Degree of fulfillment \(0-2\):\s*([0-2])", llm_response, re.IGNORECASE)
+        if match:
+            score = float(match.group(1))
+
+        enriched_matches.append([(para_idx, sbert_score, score, llm_response)])
+    
+    return enriched_matches
 
 def run_llm_analysis(parent, req_listbox, requirements_data, matches, report_paras, status_label, update_idletasks, translate):
     """
