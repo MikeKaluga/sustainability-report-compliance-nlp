@@ -9,7 +9,7 @@ The tool extracts requirements from standards and matches relevant passages from
 - Automatic extraction of requirements from standards
 - Segment-level semantic analysis using Sentence-BERT
 - Matching report content to specific GRI/ESRS indicators
-- Qualitative analysis of matches using a local LLM (Llama 8B)
+- Qualitative analysis of matches using a local LLM
 - Multi-report analysis: Compare multiple sustainability reports against the same standard via the GUI
 - Export functionality for requirements, report paragraphs, and matching results
 - Advanced filtering of irrelevant content (e.g., footers, headers)
@@ -21,7 +21,7 @@ The tool extracts requirements from standards and matches relevant passages from
 - PyTorch
 - Scikit-learn
 - Tkinter (GUI)
-- Llama 8B (local LLM)
+- Local LLMs (e.g., Llama 8B)
 
 ## Project Structure
 - `data/` – input sustainability reports and standards
@@ -51,7 +51,16 @@ The tool extracts requirements from standards and matches relevant passages from
 4. Use the interface to:
    - Select the standard and one or more report PDFs.
    - Perform matching for individual or multiple reports.
-   - **Analyze matches with LLM**: After matching, select a requirement and click "Analyze with LLM" to perform a qualitative analysis using the local Llama 8B model.
+   - **Analyze matches with LLM**: After matching, select a requirement and click "Analyze with LLM" to perform a qualitative analysis using a local LLM.
+     - The application uses **Ollama** for local LLM execution.
+     - Supported LLM models include:
+       - `dolphin-mixtral`
+       - `solar`
+       - `command-r`
+       - `mistral`
+       - `llama3`
+       - `phi3`
+     - **Note**: The artifact has only been tested with the `llama3` model.
    - Export results for further analysis.
 
 ## License
