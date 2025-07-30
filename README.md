@@ -1,4 +1,4 @@
-# Sustainability Report Compliance with NLP (Version 0.3)
+# Sustainability Report Compliance with NLP (Version 0.4)
 
 This project analyzes the compliance of corporate sustainability reports with established reporting standards (such as GRI and ESRS) using modern Natural Language Processing (NLP) methods.
 
@@ -9,6 +9,7 @@ The tool extracts requirements from standards and matches relevant passages from
 - Automatic extraction of requirements from standards
 - Segment-level semantic analysis using Sentence-BERT
 - Matching report content to specific GRI/ESRS indicators
+- Qualitative analysis of matches using a local LLM (Llama 8B)
 - Multi-report analysis: Compare multiple sustainability reports against the same standard via the GUI
 - Export functionality for requirements, report paragraphs, and matching results
 - Advanced filtering of irrelevant content (e.g., footers, headers)
@@ -20,6 +21,7 @@ The tool extracts requirements from standards and matches relevant passages from
 - PyTorch
 - Scikit-learn
 - Tkinter (GUI)
+- Llama 8B (local LLM)
 
 ## Project Structure
 - `data/` – input sustainability reports and standards
@@ -28,6 +30,7 @@ The tool extracts requirements from standards and matches relevant passages from
   - `parser.py` – parses paragraphs from reports
   - `embedder.py` – encodes text using Sentence-BERT
   - `matcher.py` – matches requirements to report paragraphs
+  - `analyze.py` – performs qualitative analysis using a local LLM
   - `UI.py` – graphical user interface for single-report analysis
   - `MultiReporterUI.py` – graphical user interface for multi-report analysis
 - `scripts/` – optional scripts for:
@@ -50,6 +53,7 @@ The tool extracts requirements from standards and matches relevant passages from
 4. Use the interface to:
    - Select the standard and one or more report PDFs.
    - Perform matching for individual or multiple reports.
+   - **Analyze matches with LLM**: After matching, select a requirement and click "Analyze with LLM" to perform a qualitative analysis using the local Llama 8B model.
    - Export results for further analysis.
 
 ## License
