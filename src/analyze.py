@@ -20,6 +20,46 @@ import requests
 import tkinter as tk
 from tkinter import messagebox, Text
 
+def get_llm_analysis(requirement_text, paragraphs):
+    """
+    Sends a single requirement and its paragraphs to the LLM and returns the analysis.
+    This is a non-GUI function intended for batch processing.
+
+    Args:
+        requirement_text (str): The text of the requirement.
+        paragraphs (list): A list of matched paragraph strings.
+
+    Returns:
+        str: The LLM's analysis response or an error message.
+    """
+    prompt = f"""
+You are an expert in sustainability reporting according to ESRS and GRI.
+Refer to the following requirement:
+
+"{requirement_text}"
+
+Now analyze the following paragraphs from a sustainability report and answer:
+- Which elements of the requirement are already present in the text?
+- What is missing to fully meet the requirement?
+
+Based on your analysis, please provide your answer in the format:
+Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
+Justification: ...
+
+Paragraphs:
+{chr(10).join(paragraphs)}
+"""
+    try:
+        response = requests.post("http://localhost:11434/api/generate", json={
+            "model": "llama3",
+            "prompt": prompt,
+            "stream": False
+        }, timeout=120)
+        response.raise_for_status()
+        return response.json().get("response", "No response text found.")
+    except requests.exceptions.RequestException as e:
+        return f"LLM Connection Error: Could not connect to the local LLM. Please ensure Ollama is running. Error: {e}"
+
 def run_llm_analysis(parent, req_listbox, requirements_data, matches, report_paras, status_label, update_idletasks, translate):
     """
     Performs qualitative analysis of a selected requirement and its top matches using a local LLM.
@@ -66,12 +106,11 @@ Refer to the following requirement:
 "{requirement_text}"
 
 Now analyze the following paragraphs from a sustainability report and answer:
-- Is the requirement met?
-- If yes, why?
-- If no, what is missing?
+- Which elements of the requirement are already present in the text?
+- What is missing to fully meet the requirement?
 
-Please provide your answer in the format:
-Fulfilled: Yes/No
+Based on your analysis, please provide your answer in the format:
+Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
 Justification: ...
 
 Paragraphs:

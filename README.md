@@ -1,4 +1,4 @@
-# Sustainability Report Compliance with NLP (Version 0.4)
+# Sustainability Report Compliance with NLP (Version 0.5)
 
 This project analyzes the compliance of corporate sustainability reports with established reporting standards (such as GRI and ESRS) using modern Natural Language Processing (NLP) methods.
 
@@ -10,8 +10,12 @@ The tool extracts requirements from standards and matches relevant passages from
 - Segment-level semantic analysis using Sentence-BERT
 - Matching report content to specific GRI/ESRS indicators
 - Qualitative analysis of matches using a local LLM
+- Export functionality for:
+  - Requirements
+  - Report paragraphs
+  - Matching results
+  - LLM analysis results
 - Multi-report analysis: Compare multiple sustainability reports against the same standard via the GUI
-- Export functionality for requirements, report paragraphs, and matching results
 - Advanced filtering of irrelevant content (e.g., footers, headers)
 
 ## Technologies Used
@@ -36,7 +40,7 @@ The tool extracts requirements from standards and matches relevant passages from
 - `scripts/` – optional scripts
 
 ## How to Run
-1. **Set up a virtual environment** (recommended):
+1. Set up a virtual environment (recommended):
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
@@ -51,7 +55,7 @@ The tool extracts requirements from standards and matches relevant passages from
 4. Use the interface to:
    - Select the standard and one or more report PDFs.
    - Perform matching for individual or multiple reports.
-   - **Analyze matches with LLM**: After matching, select a requirement and click "Analyze with LLM" to perform a qualitative analysis using a local LLM.
+   - Analyze matches with LLM: After matching, select a requirement and click "Analyze with LLM" to perform a qualitative analysis using a local LLM.
      - The application uses **Ollama** for local LLM execution.
      - Supported LLM models include:
        - `dolphin-mixtral`
@@ -60,11 +64,12 @@ The tool extracts requirements from standards and matches relevant passages from
        - `mistral`
        - `llama3`
        - `phi3`
-     - **Note**: The artifact has only been tested with the `llama3` model on the following hardware:
-       - **GPU**: NVIDIA GeForce GTX 3070 (8GB VRAM)
-       - **RAM**: 32GB DDR5 (4800MT/s)
-       - **CPU**: AMD Ryzen 7 6800H (16 Threads)
-   - Export results for further analysis.
+     - Note: The artifact has only been tested with the `llama3` model on the following hardware:
+       - GPU: NVIDIA GeForce GTX 3070 (8GB VRAM)
+       - RAM: 32GB DDR5 (4800MT/s)
+       - CPU: AMD Ryzen 7 6800H (16 Threads)
+   - Export LLM analysis results: After performing the LLM analysis, click "Export LLM Analysis" to save the results for all requirements and their matches to a CSV file.
+   - Export other results for further analysis.
 
 ## License
 MIT License

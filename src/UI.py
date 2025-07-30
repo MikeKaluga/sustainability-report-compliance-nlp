@@ -29,7 +29,7 @@ from parser import extract_paragraphs_from_pdf  # Extract paragraphs from a repo
 from embedder import SBERTEmbedder  # Create embeddings using Sentence-BERT
 from matcher import match_requirements_to_report  # Match requirements to report paragraphs
 from translations import translate, switch_language  # Import the translation functions
-from analyze import run_llm_analysis
+from analyze import run_llm_analysis, get_llm_analysis
 
 # --- Export functionality imports ---
 try:
@@ -94,6 +94,9 @@ class ComplianceApp(tk.Tk):
 
         self.run_match_btn = ttk.Button(top_frame, text=translate("run_matching"), command=self.run_matching, state=tk.DISABLED)
         self.run_match_btn.pack(side=tk.LEFT)
+
+        self.export_llm_btn = ttk.Button(top_frame, text=translate("export_llm_analysis"), command=self.export_llm_analysis, state=tk.DISABLED)
+        self.export_llm_btn.pack(side=tk.LEFT, padx=(10, 0))
 
         self.status_label = ttk.Label(top_frame, text=translate("initial_status"))
         self.status_label.pack(side=tk.LEFT, padx=20)
@@ -249,6 +252,7 @@ class ComplianceApp(tk.Tk):
         
         self.status_label.config(text=translate("matching_completed_label"))
         self.export_menu.entryconfig(2, state=tk.NORMAL)  # Use index 2 for "Export Matching Results"
+        self.export_llm_btn.config(state=tk.NORMAL)
         messagebox.showinfo(translate("completed"), translate("matching_completed"))
 
     def on_requirement_select(self, event):
@@ -293,6 +297,97 @@ class ComplianceApp(tk.Tk):
         """
         run_llm_analysis(self, self.req_listbox, self.requirements_data, self.matches, self.report_paras, self.status_label, self.update_idletasks, translate)
 
+    def export_llm_analysis(self):
+        """
+        Performs LLM analysis for all requirements and exports the results to a CSV file.
+        """
+        if not self.matches:
+            messagebox.showwarning(translate("no_data"), translate("no_matches_to_export"))
+            return
+
+        path = self._get_save_path('csv', "llm_analysis_results")
+        if not path:
+            return
+
+        # Create progress window
+        progress_win = tk.Toplevel(self)
+        progress_win.title("LLM Analysis Progress")
+        progress_win.geometry("400x150")
+        progress_win.transient(self)
+        progress_win.grab_set()  # Make window modal
+
+        # Progress label
+        progress_label = ttk.Label(progress_win, text="Preparing analysis...")
+        progress_label.pack(pady=10)
+
+        # Progress bar
+        progress_var = tk.DoubleVar()
+        progress_bar = ttk.Progressbar(progress_win, variable=progress_var, maximum=100)
+        progress_bar.pack(pady=10, padx=20, fill=tk.X)
+
+        # Progress info
+        progress_info = ttk.Label(progress_win, text="")
+        progress_info.pack(pady=5)
+
+        # Cancel button
+        cancel_button = ttk.Button(progress_win, text="Cancel", command=lambda: setattr(self, '_cancel_analysis', True))
+        cancel_button.pack(pady=5)
+
+        self._cancel_analysis = False
+        analysis_results = []
+        req_codes = list(self.requirements_data.keys())
+        req_texts = list(self.requirements_data.values())
+        total_reqs = len(req_codes)
+
+        try:
+            for i, match_list in enumerate(self.matches):
+                if self._cancel_analysis:
+                    break
+
+                # Update progress
+                progress_percent = (i / total_reqs) * 100
+                progress_var.set(progress_percent)
+                progress_label.config(text=f"Analyzing requirement {i + 1}/{total_reqs} with LLM...")
+                progress_info.config(text=f"Code: {req_codes[i]}")
+                progress_win.update()
+
+                if not match_list:
+                    analysis_results.append({
+                        'Requirement Code': req_codes[i],
+                        'Requirement Text': req_texts[i],
+                        'LLM Analysis': 'No matches found, skipping analysis.'
+                    })
+                    continue
+
+                requirement_text = req_texts[i]
+                paragraphs = [self.report_paras[report_idx] for report_idx, score in match_list]
+                
+                llm_response = get_llm_analysis(requirement_text, paragraphs)
+
+                analysis_results.append({
+                    'Requirement Code': req_codes[i],
+                    'Requirement Text': req_texts[i],
+                    'LLM Analysis': llm_response
+                })
+
+            if not self._cancel_analysis:
+                # Complete progress
+                progress_var.set(100)
+                progress_label.config(text="Saving results...")
+                progress_info.config(text="Writing to file...")
+                progress_win.update()
+
+                df = pd.DataFrame(analysis_results)
+                self._export_dataframe(df, path, 'csv', "LLM Analysis Results")
+            else:
+                messagebox.showinfo("Cancelled", "LLM analysis was cancelled.")
+
+        except Exception as e:
+            messagebox.showerror("LLM Analysis Error", f"An error occurred during LLM analysis export:\n{e}")
+        finally:
+            progress_win.destroy()
+            self.status_label.config(text=translate("matching_completed_label"))
+
     def _show_help(self):
         """
         Displays a help/FAQ window with instructions on how to use the application.
@@ -300,7 +395,7 @@ class ComplianceApp(tk.Tk):
         help_win = tk.Toplevel(self)
         help_win.title(translate("help"))
         help_win.geometry("600x500")
-        help_win.transient(self) # Keep window on top
+        help_win.transient(self)  # Keep window on top
 
         text_area = Text(help_win, wrap=tk.WORD, font=("Segoe UI", 10), padx=10, pady=10)
         text_area.pack(expand=True, fill=tk.BOTH)
@@ -319,11 +414,13 @@ class ComplianceApp(tk.Tk):
         text_area.insert(tk.END, translate("help_step5_text") + "\n\n")
         text_area.insert(tk.END, translate("help_step6_title") + "\n", "h2")
         text_area.insert(tk.END, translate("help_step6_text") + "\n\n")
+        text_area.insert(tk.END, translate("help_step7_title") + "\n", "h2")
+        text_area.insert(tk.END, translate("help_step7_text") + "\n\n")
 
         # --- Tag Configuration ---
         text_area.tag_config("h1", font=("Segoe UI", 16, "bold"), spacing3=10)
         text_area.tag_config("h2", font=("Segoe UI", 12, "bold"), spacing3=5)
-        text_area.config(state=tk.DISABLED) # Make read-only
+        text_area.config(state=tk.DISABLED)  # Make read-only
 
     def _show_about(self):
         """
@@ -518,6 +615,8 @@ class ComplianceApp(tk.Tk):
         self.select_standard_btn.config(text=translate("select_standard"))
         self.select_report_btn.config(text=translate("select_report"))
         self.run_match_btn.config(text=translate("run_matching"))
+        self.export_llm_btn.config(text=translate("export_llm_analysis"))
+        self.analyze_llm_btn.config(text=translate("analyze_with_llm"))
         
         # Update status label based on current state
         if not self.standard_pdf_path:

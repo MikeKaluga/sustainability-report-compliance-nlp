@@ -20,6 +20,8 @@ TRANSLATIONS = {
         "select_standard": "1. Select Standard PDF",
         "select_report": "2. Select Report PDF",
         "run_matching": "3. Run Matching",
+        "export_llm_analysis": "Export LLM Analysis",
+        "analyze_with_llm": "Analyze with LLM",
         "initial_status": "Please select a standard PDF.",
         "extracting_requirements": "Extracting requirements...",
         "error_processing_standard": "Error Processing Standard",
@@ -73,11 +75,13 @@ TRANSLATIONS = {
         "help_step5_text": "After selecting a requirement, click 'Analyze with LLM' to perform a qualitative analysis using a local Llama3 model. The analysis will determine whether the requirement is fulfilled and provide a justification.",
         "help_step6_title": "Step 6: Export Results",
         "help_step6_text": "Use the 'Export' menu to save the extracted requirements, the report paragraphs, or the complete matching results as a CSV, Excel, or PDF file.",
+        "help_step7_title": "Step 7: Export LLM Analysis Results",
+        "help_step7_text": "After performing the LLM analysis, click 'Export LLM Analysis' to save the results for all requirements and their matches to a CSV file.",
 
         # --- About Window ---
         "about_title": "About the app for investigating the compliance of sustainability reports with reporting standards using NLP methods",
         "about_text": "This application was developed as part of a bachelor's thesis to analyze the compliance of sustainability reports with established standards (such as GRI and ESRS) using NLP methods.",
-        "about_version": "Version: 0.4",
+        "about_version": "Version: 0.5",
         "about_author": "Author: Mihail Savvateev"
     },
     "de": {
@@ -85,6 +89,8 @@ TRANSLATIONS = {
         "select_standard": "1. Standard-PDF auswählen",
         "select_report": "2. Bericht-PDF auswählen",
         "run_matching": "3. Übereinstimmung prüfen",
+        "export_llm_analysis": "LLM-Analyse exportieren",
+        "analyze_with_llm": "Analysieren mit LLM",
         "initial_status": "Bitte eine Standard-PDF auswählen.",
         "extracting_requirements": "Anforderungen werden extrahiert...",
         "error_processing_standard": "Fehler bei der Verarbeitung des Standards",
@@ -138,11 +144,13 @@ TRANSLATIONS = {
         "help_step5_text": "Nachdem Sie eine Anforderung ausgewählt haben, klicken Sie auf 'Mit LLM analysieren', um eine qualitative Analyse mit einem lokalen Llama3-Modell durchzuführen. Die Analyse bestimmt, ob die Anforderung erfüllt ist, und liefert eine Begründung.",
         "help_step6_title": "Schritt 6: Ergebnisse exportieren",
         "help_step6_text": "Nutzen Sie das 'Export'-Menü, um die extrahierten Anforderungen, die Berichtsabsätze oder die vollständigen Übereinstimmungs-Ergebnisse als CSV, Excel oder PDF zu speichern.",
+        "help_step7_title": "Schritt 7: LLM-Analyseergebnisse exportieren",
+        "help_step7_text": "Nach der Durchführung der LLM-Analyse klicken Sie auf 'LLM-Analyse exportieren', um die Ergebnisse für alle Anforderungen und deren Übereinstimmungen in einer CSV-Datei zu speichern.",
 
         # --- About Window ---
         "about_title": "Über die App zur Untersuchung der Übereinstimmung von Nachhaltigkeitsberichten mit Berichtsstandards unter Verwendung von NLP-Methoden",
         "about_text": "Diese Anwendung wurde im Rahmen einer Bachelorarbeit entwickelt, um die Einhaltung von Nachhaltigkeitsberichten mit etablierten Standards (wie GRI und ESRS) mithilfe von NLP-Methoden zu analysieren.",
-        "about_version": "Version: 0.4",
+        "about_version": "Version: 0.5",
         "about_author": "Autor: Mihail Savvateev"
     },
 }
