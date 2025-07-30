@@ -60,7 +60,10 @@ The tool extracts requirements from standards and matches relevant passages from
        - `mistral`
        - `llama3`
        - `phi3`
-     - **Note**: The artifact has only been tested with the `llama3` model.
+     - **Note**: The artifact has only been tested with the `llama3` model on the following hardware:
+       - **GPU**: NVIDIA GeForce GTX 3070 (8GB VRAM)
+       - **RAM**: 32GB DDR5 (4800MT/s)
+       - **CPU**: AMD Ryzen 7 6800H (16 Threads)
    - Export results for further analysis.
 
 ## License
