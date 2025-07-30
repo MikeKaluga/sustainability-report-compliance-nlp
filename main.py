@@ -1,35 +1,64 @@
 """
-This script serves as the main entry point for analyzing the compliance of sustainability reports
-with established standards. It extracts requirements from a standard PDF, parses paragraphs from
-a report PDF, and matches the requirements to the report content using semantic similarity.
+Version: v0.6
+
+This script serves as the unified entry point for analyzing the compliance of sustainability reports
+with established standards. It provides a graphical user interface to select between analyzing a single report or multiple reports.
 
 Key Features:
-- Extracts requirements from a standard PDF.
-- Parses paragraphs from a report PDF.
-- Embeds text using Sentence-BERT (SBERT) and matches requirements to report paragraphs.
-- Displays the matching results, including similarity scores and matched paragraphs.
+- Provides a GUI to choose between single and multi-report analysis.
+- Launches the appropriate UI for the selected analysis type.
 
 Usage:
-- Define the paths to the standard and report PDFs in the `standard_file` and `report_file` variables.
-- Run the script to view the matching results in the console.
+- Run the script and select an option from the GUI window.
 """
 
 import warnings
-from src.parser import (
-    extract_paragraphs_from_pdf,
-)  # Function to extract paragraphs from a report (PDF)
-from src.embedder import (
-    SBERTEmbedder,
-)  # Class for creating embeddings using Sentence-BERT
-from src.matcher import (
-    match_requirements_to_report,
-)  # Function to match requirements with report content
-from src.extractor import (
-    extract_requirements_from_standard_pdf,
-)  # Function to extract requirements from a standard (PDF)
+import sys
+import os
+import tkinter as tk
+from tkinter import ttk
+import subprocess
+import threading
+import time
+
+# Add the project root to the Python path to resolve module imports
+project_root = os.path.dirname(os.path.abspath(__file__))
+src_path = os.path.join(project_root, 'src')
+sys.path.insert(0, project_root)
+sys.path.insert(0, src_path)
+
+
+def show_loading_window(title):
+    """Show a loading window with animation while the UI is starting."""
+    loading_window = tk.Toplevel()
+    loading_window.title("Loading...")
+    loading_window.geometry("300x150")
+    loading_window.resizable(False, False)
+    
+    # Center the loading window
+    loading_window.transient()
+    loading_window.grab_set()
+    
+    frame = ttk.Frame(loading_window, padding="20")
+    frame.pack(expand=True, fill=tk.BOTH)
+    
+    # Progress bar with indeterminate mode (spinner effect)
+    progress = ttk.Progressbar(frame, mode='indeterminate', length=200)
+    progress.pack(pady=(20, 10))
+    progress.start(10)  # Start animation
+    
+    # Loading text
+    label = ttk.Label(frame, text=f"Starting {title}...", font=("Arial", 11))
+    label.pack()
+    
+    return loading_window
 
 
 def main():
+    """
+    Main entry point for the application.
+    Creates a GUI window to allow the user to choose between analyzing a single report or multiple reports.
+    """
     # Suppress specific warnings from Transformers and Torch to keep console output clean
     warnings.filterwarnings(
         "ignore", message=".*clean_up_tokenization_spaces.*", category=FutureWarning
@@ -40,51 +69,100 @@ def main():
         category=UserWarning,
     )
 
-    # Define the paths to the input files
-    standard_file = "data/standard.pdf"  # Standard PDF containing the requirements
-    report_file = "data/bericht.pdf"  # Report PDF to be analyzed
+    root = tk.Tk()
+    root.title("Sustainability Report Compliance Analysis (v0.6)")
+    root.geometry("400x150")
 
-    print("Extracting requirements from the standard and paragraphs from the report...")
-    # Extract requirements from the standard PDF
-    # The function returns a dictionary where keys are requirement codes and values are the corresponding texts
-    req_dict = extract_requirements_from_standard_pdf(standard_file)
-    standard_paras = list(
-        req_dict.values()
-    )  # Convert the dictionary values to a list of requirement texts
+    def run_single_report_analysis():
+        """Start the single report analysis UI."""
+        # Show loading animation
+        loading_win = show_loading_window("Single Report Analysis")
+        
+        def start_ui():
+            try:
+                # Give the loading window time to appear
+                time.sleep(0.5)
+                # Run the UI module as a separate process
+                ui_path = os.path.join(project_root, 'src', 'UI.py')
+                process = subprocess.Popen([sys.executable, ui_path])
+                
+                # Wait for the UI process to actually start and stabilize
+                # Check if process is running for a longer period
+                start_time = time.time()
+                while time.time() - start_time < 10:  # Wait up to 10 seconds
+                    if process.poll() is not None:  # Process ended unexpectedly
+                        break
+                    time.sleep(0.5)
+                
+                # Give additional time for UI to fully load
+                time.sleep(0.6)
+                loading_win.destroy()
+                root.destroy()
+                # Wait for the process to complete
+                process.wait()
+            except Exception as e:
+                loading_win.destroy()
+                root.destroy()
+        
+        # Start UI in separate thread to keep loading animation responsive
+        threading.Thread(target=start_ui, daemon=True).start()
 
-    # Extract paragraphs from the report PDF
-    # The function returns a list of paragraphs extracted from the report
-    report_paras = extract_paragraphs_from_pdf(report_file)
+    def run_multi_report_analysis():
+        """Start the multi-report analysis UI."""
+        # Show loading animation
+        loading_win = show_loading_window("Multi-Report Analysis")
+        
+        def start_multi_ui():
+            try:
+                # Give the loading window time to appear
+                time.sleep(0.5)
+                # Run the MultiReportUI module as a separate process
+                multi_ui_path = os.path.join(project_root, 'src', 'MultiReportUI.py')
+                process = subprocess.Popen([sys.executable, multi_ui_path])
+                
+                # Wait for the UI process to actually start and stabilize
+                # Check if process is running for a longer period
+                start_time = time.time()
+                while time.time() - start_time < 10:  # Wait up to 10 seconds
+                    if process.poll() is not None:  # Process ended unexpectedly
+                        break
+                    time.sleep(0.5)
+                
+                # Give additional time for UI to fully load
+                time.sleep(0.6)
+                loading_win.destroy()
+                root.destroy()
+                # Wait for the process to complete
+                process.wait()
+            except Exception as e:
+                loading_win.destroy()
+                root.destroy()
+        
+        # Start UI in separate thread to keep loading animation responsive
+        threading.Thread(target=start_multi_ui, daemon=True).start()
 
-    # Print the number of found requirements and report paragraphs
-    print(
-        f"Found requirements: {len(standard_paras)}, relevant report paragraphs: {len(report_paras)}"
-    )
+    main_frame = ttk.Frame(root, padding="20")
+    main_frame.pack(expand=True, fill=tk.BOTH)
 
-    print("Embedding paragraphs...")
-    # Initialize the SBERT embedder
-    embedder = SBERTEmbedder()
+    ttk.Label(
+        main_frame,
+        text="Please select an analysis type:",
+        font=("Arial", 12)
+    ).pack(pady=(0, 10))
 
-    # Create embeddings for the requirements and report paragraphs
-    # The embeddings are numerical representations of the texts used for matching
-    standard_emb = embedder.encode(standard_paras)
-    report_emb = embedder.encode(report_paras)
+    ttk.Button(
+        main_frame,
+        text="Analyze Single Report",
+        command=run_single_report_analysis,
+    ).pack(pady=5, fill=tk.X)
 
-    print("Matching segments...")
-    # Perform matching to link requirements with report paragraphs
-    # The function returns a list of matches, where each match is a list of (index, score) tuples
-    matches = match_requirements_to_report(standard_emb, report_emb, top_k=5)
+    ttk.Button(
+        main_frame,
+        text="Analyze Multiple Reports",
+        command=run_multi_report_analysis,
+    ).pack(pady=5, fill=tk.X)
 
-    # Print the matching results
-    # For each requirement, display the best matching paragraphs from the report with their scores
-    for i, match_list in enumerate(matches):
-        print(
-            f"\nRequirement {i+1}: {standard_paras[i][:80]}..."
-        )  # Show the first 80 characters of the requirement
-        for idx, score in match_list:
-            print(
-                f" ({score:.2f}) {report_paras[idx][:100]}..."
-            )  # Show the first 100 characters of the matching paragraph
+    root.mainloop()
 
 
 if __name__ == "__main__":

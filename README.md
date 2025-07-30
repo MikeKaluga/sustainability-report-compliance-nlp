@@ -1,10 +1,13 @@
-# Sustainability Report Compliance with NLP (Version 0.5)
+# Sustainability Report Compliance with NLP (Version 0.6)
 
 This project analyzes the compliance of corporate sustainability reports with established reporting standards (such as GRI and ESRS) using modern Natural Language Processing (NLP) methods.
 
 The tool extracts requirements from standards and matches relevant passages from sustainability reports to these requirements using semantic similarity techniques.
 
 ## Key Features
+- Unified entry point via `main.py`:
+  - Single-report analysis
+  - Multi-report analysis
 - PDF parsing and preprocessing pipeline
 - Automatic extraction of requirements from standards
 - Segment-level semantic analysis using Sentence-BERT
@@ -15,7 +18,6 @@ The tool extracts requirements from standards and matches relevant passages from
   - Report paragraphs
   - Matching results
   - LLM analysis results
-- Multi-report analysis: Compare multiple sustainability reports against the same standard via the GUI
 - Advanced filtering of irrelevant content (e.g., footers, headers)
 - Multilingual support (English and German) with a language toggle
 
@@ -53,10 +55,9 @@ The tool extracts requirements from standards and matches relevant passages from
    pip install -r requirements.txt
    ```
 2. Place the standard PDF and report PDFs in the `data/` folder.
-3. Run the GUI:
+3. Run the application:
    ```bash
-   python src/UI.py  # For single-report analysis
-   python src/MultiReporterUI.py  # For multi-report analysis
+   python main.py
    ```
 4. Use the interface to:
    - Select the standard and one or more report PDFs.
