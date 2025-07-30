@@ -18,29 +18,25 @@ Usage:
 """
 
 import tkinter as tk
-from tkinter import filedialog, ttk, Listbox, Scrollbar, messagebox, Text
+from tkinter import ttk, Listbox, Scrollbar, messagebox, Text
 import os
 import warnings
-import requests
 
 # --- Core functionality imports ---
-from extractor import extract_requirements_from_standard_pdf  # Extract requirements from a standard PDF
-from parser import extract_paragraphs_from_pdf  # Extract paragraphs from a report PDF
 from embedder import SBERTEmbedder  # Create embeddings using Sentence-BERT
 from matcher import match_requirements_to_report  # Match requirements to report paragraphs
 from translations import translate, switch_language  # Import the translation functions
-from analyze import run_llm_analysis, get_llm_analysis
+from analyze import run_llm_analysis  # Analyze matching results with a local LLM
 
-# --- Export functionality imports ---
-try:
-    import pandas as pd
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib import colors
-    EXPORT_LIBS_AVAILABLE = True
-except ImportError:
-    EXPORT_LIBS_AVAILABLE = False
+# --- File and Export functionality imports ---
+from file_handler import select_standard_file, select_report_file
+from exporter import (
+    is_export_available,
+    export_requirements,
+    export_report_paras,
+    export_matches,
+    export_llm_analysis as export_llm_analysis_func
+)
 
 
 class ComplianceApp(tk.Tk):
@@ -86,16 +82,16 @@ class ComplianceApp(tk.Tk):
         top_frame = ttk.Frame(main_frame)
         top_frame.pack(fill=tk.X, pady=5)
 
-        self.select_standard_btn = ttk.Button(top_frame, text=translate("select_standard"), command=self.select_standard_file)
+        self.select_standard_btn = ttk.Button(top_frame, text=translate("select_standard"), command=lambda: select_standard_file(self))
         self.select_standard_btn.pack(side=tk.LEFT, padx=(0, 10))
 
-        self.select_report_btn = ttk.Button(top_frame, text=translate("select_report"), command=self.select_report_file, state=tk.DISABLED)
+        self.select_report_btn = ttk.Button(top_frame, text=translate("select_report"), command=lambda: select_report_file(self), state=tk.DISABLED)
         self.select_report_btn.pack(side=tk.LEFT, padx=(0, 10))
 
         self.run_match_btn = ttk.Button(top_frame, text=translate("run_matching"), command=self.run_matching, state=tk.DISABLED)
         self.run_match_btn.pack(side=tk.LEFT)
 
-        self.export_llm_btn = ttk.Button(top_frame, text=translate("export_llm_analysis"), command=self.export_llm_analysis, state=tk.DISABLED)
+        self.export_llm_btn = ttk.Button(top_frame, text=translate("export_llm_analysis"), command=lambda: export_llm_analysis_func(self), state=tk.DISABLED)
         self.export_llm_btn.pack(side=tk.LEFT, padx=(10, 0))
 
         self.status_label = ttk.Label(top_frame, text=translate("initial_status"))
@@ -125,7 +121,7 @@ class ComplianceApp(tk.Tk):
         action_frame = ttk.Frame(self.text_container)
         action_frame.pack(fill=tk.X, pady=(0, 5))
 
-        self.analyze_llm_btn = ttk.Button(action_frame, text="Analyze with LLM", command=self.run_llm_analysis, state=tk.DISABLED)
+        self.analyze_llm_btn = ttk.Button(action_frame, text="Analyze with LLM", command=lambda: run_llm_analysis(self, self.req_listbox, self.requirements_data, self.matches, self.report_paras, self.status_label, self.update_idletasks, translate), state=tk.DISABLED)
         self.analyze_llm_btn.pack(side=tk.RIGHT)
 
         self.text_display = Text(self.text_container, wrap=tk.WORD, state=tk.DISABLED, font=("Segoe UI", 10))
@@ -144,23 +140,23 @@ class ComplianceApp(tk.Tk):
 
         # Submenu for exporting requirements
         self.req_export_menu = tk.Menu(self.export_menu, tearoff=0)
-        self.req_export_menu.add_command(label="as CSV...", command=lambda: self.export_requirements('csv'))
-        self.req_export_menu.add_command(label="as Excel...", command=lambda: self.export_requirements('excel'))
-        self.req_export_menu.add_command(label="as PDF...", command=lambda: self.export_requirements('pdf'))
+        self.req_export_menu.add_command(label="as CSV...", command=lambda: export_requirements(self.requirements_data, 'csv'), state=tk.NORMAL if is_export_available('csv') else tk.DISABLED)
+        self.req_export_menu.add_command(label="as Excel...", command=lambda: export_requirements(self.requirements_data, 'excel'), state=tk.NORMAL if is_export_available('excel') else tk.DISABLED)
+        self.req_export_menu.add_command(label="as PDF...", command=lambda: export_requirements(self.requirements_data, 'pdf'), state=tk.NORMAL if is_export_available('pdf') else tk.DISABLED)
         self.export_menu.add_cascade(label=translate("export_reqs"), menu=self.req_export_menu, state=tk.DISABLED)
 
         # Submenu for exporting report paragraphs
         self.paras_export_menu = tk.Menu(self.export_menu, tearoff=0)
-        self.paras_export_menu.add_command(label="as CSV...", command=lambda: self.export_report_paras('csv'))
-        self.paras_export_menu.add_command(label="as Excel...", command=lambda: self.export_report_paras('excel'))
-        self.paras_export_menu.add_command(label="as PDF...", command=lambda: self.export_report_paras('pdf'))
+        self.paras_export_menu.add_command(label="as CSV...", command=lambda: export_report_paras(self.report_paras, 'csv'), state=tk.NORMAL if is_export_available('csv') else tk.DISABLED)
+        self.paras_export_menu.add_command(label="as Excel...", command=lambda: export_report_paras(self.report_paras, 'excel'), state=tk.NORMAL if is_export_available('excel') else tk.DISABLED)
+        self.paras_export_menu.add_command(label="as PDF...", command=lambda: export_report_paras(self.report_paras, 'pdf'), state=tk.NORMAL if is_export_available('pdf') else tk.DISABLED)
         self.export_menu.add_cascade(label=translate("export_paras"), menu=self.paras_export_menu, state=tk.DISABLED)
 
         # Submenu for exporting matching results
         self.matches_export_menu = tk.Menu(self.export_menu, tearoff=0)
-        self.matches_export_menu.add_command(label="as CSV...", command=lambda: self.export_matches('csv'))
-        self.matches_export_menu.add_command(label="as Excel...", command=lambda: self.export_matches('excel'))
-        self.matches_export_menu.add_command(label="as PDF...", command=lambda: self.export_matches('pdf'))
+        self.matches_export_menu.add_command(label="as CSV...", command=lambda: export_matches(self.matches, self.requirements_data, self.report_paras, 'csv'), state=tk.NORMAL if is_export_available('csv') else tk.DISABLED)
+        self.matches_export_menu.add_command(label="as Excel...", command=lambda: export_matches(self.matches, self.requirements_data, self.report_paras, 'excel'), state=tk.NORMAL if is_export_available('excel') else tk.DISABLED)
+        self.matches_export_menu.add_command(label="as PDF...", command=lambda: export_matches(self.matches, self.requirements_data, self.report_paras, 'pdf'), state=tk.NORMAL if is_export_available('pdf') else tk.DISABLED)
         self.export_menu.add_cascade(label=translate("export_matches"), menu=self.matches_export_menu, state=tk.DISABLED)
 
         # --- FAQ Menu ---
@@ -172,74 +168,10 @@ class ComplianceApp(tk.Tk):
         # --- Language switch menu ---
         self.menu_bar.add_command(label="DE/EN", command=self._switch_language)
 
-        # Disable export options if required libraries are not available
-        if not EXPORT_LIBS_AVAILABLE:
-            self.export_menu.entryconfig(0, state=tk.DISABLED)
-            self.export_menu.entryconfig(1, state=tk.DISABLED)
-            self.export_menu.entryconfig(2, state=tk.DISABLED)
+        # Show warning only if no export formats are available at all
+        if not is_export_available('csv') and not is_export_available('excel') and not is_export_available('pdf'):
             messagebox.showwarning(translate("missing_libs"), 
                                    translate("missing_libs_text"))
-
-    def select_standard_file(self):
-        """
-        Handles the selection of the standard PDF file, extracts requirements, and updates the UI.
-        """
-        path = filedialog.askopenfilename(title=translate("select_standard"), filetypes=[("PDF Files", "*.pdf")])
-        if not path: return
-
-        self.standard_pdf_path = path
-        self.status_label.config(text=f"Standard: {os.path.basename(path)}. {translate('extracting_requirements')}")
-        self.update_idletasks()
-
-        try:
-            # Extract requirements directly from the selected standard PDF
-            self.requirements_data = extract_requirements_from_standard_pdf(self.standard_pdf_path)
-            
-            # Populate the listbox with the extracted requirements
-            self.req_listbox.delete(0, tk.END)
-            for code in self.requirements_data.keys():
-                self.req_listbox.insert(tk.END, code)
-            if not self.requirements_data:
-                self.req_listbox.insert(tk.END, translate("no_reqs_found"))
-
-            self.status_label.config(text=f"{len(self.requirements_data)} {translate('reqs_loaded')}")
-            self.update_idletasks()
-            
-            standard_paras = list(self.requirements_data.values())
-            self.standard_emb = self.embedder.encode(standard_paras)
-            
-            self.status_label.config(text=translate("standard_ready"))
-            self.select_report_btn.config(state=tk.NORMAL)
-            self.export_menu.entryconfig(0, state=tk.NORMAL)  # Use index 0 for "Export Requirements"
-        except Exception as e:
-            messagebox.showerror(translate("error_processing_standard"), f"An error occurred:\n{e}")
-            self.status_label.config(text=translate("error_try_again"))
-
-    def select_report_file(self):
-        """
-        Handles the selection of the report PDF file, extracts paragraphs, and updates the UI.
-        """
-        path = filedialog.askopenfilename(title=translate("select_report"), filetypes=[("PDF Files", "*.pdf")])
-        if not path: return
-
-        self.report_pdf_path = path
-        self.status_label.config(text=f"Report: {os.path.basename(path)}. Parsing paragraphs...")
-        self.update_idletasks()
-
-        try:
-            self.report_paras = extract_paragraphs_from_pdf(self.report_pdf_path)
-
-            self.status_label.config(text=f"{len(self.report_paras)} {translate('paras_found')}")
-            self.update_idletasks()
-
-            self.report_emb = self.embedder.encode(self.report_paras)
-            
-            self.status_label.config(text=translate("report_ready"))
-            self.run_match_btn.config(state=tk.NORMAL)
-            self.export_menu.entryconfig(1, state=tk.NORMAL)  # Use index 1 for "Export Report Paragraphs"
-        except Exception as e:
-            messagebox.showerror(translate("error_processing_report"), f"An error occurred:\n{e}")
-            self.status_label.config(text=translate("error_try_again"))
 
     def run_matching(self):
         """
@@ -289,104 +221,6 @@ class ComplianceApp(tk.Tk):
         self.text_display.config(state=tk.DISABLED)
         self.text_display.tag_config("h1", font=("Segoe UI", 12, "bold"), spacing1=5, spacing3=5)
         self.text_display.tag_config("score", font=("Segoe UI", 10, "italic"), foreground="blue")
-
-    def run_llm_analysis(self):
-        """
-        Takes the selected requirement and its top matches, sends them to a local LLM for analysis,
-        and displays the result.
-        """
-        run_llm_analysis(self, self.req_listbox, self.requirements_data, self.matches, self.report_paras, self.status_label, self.update_idletasks, translate)
-
-    def export_llm_analysis(self):
-        """
-        Performs LLM analysis for all requirements and exports the results to a CSV file.
-        """
-        if not self.matches:
-            messagebox.showwarning(translate("no_data"), translate("no_matches_to_export"))
-            return
-
-        path = self._get_save_path('csv', "llm_analysis_results")
-        if not path:
-            return
-
-        # Create progress window
-        progress_win = tk.Toplevel(self)
-        progress_win.title("LLM Analysis Progress")
-        progress_win.geometry("400x150")
-        progress_win.transient(self)
-        progress_win.grab_set()  # Make window modal
-
-        # Progress label
-        progress_label = ttk.Label(progress_win, text="Preparing analysis...")
-        progress_label.pack(pady=10)
-
-        # Progress bar
-        progress_var = tk.DoubleVar()
-        progress_bar = ttk.Progressbar(progress_win, variable=progress_var, maximum=100)
-        progress_bar.pack(pady=10, padx=20, fill=tk.X)
-
-        # Progress info
-        progress_info = ttk.Label(progress_win, text="")
-        progress_info.pack(pady=5)
-
-        # Cancel button
-        cancel_button = ttk.Button(progress_win, text="Cancel", command=lambda: setattr(self, '_cancel_analysis', True))
-        cancel_button.pack(pady=5)
-
-        self._cancel_analysis = False
-        analysis_results = []
-        req_codes = list(self.requirements_data.keys())
-        req_texts = list(self.requirements_data.values())
-        total_reqs = len(req_codes)
-
-        try:
-            for i, match_list in enumerate(self.matches):
-                if self._cancel_analysis:
-                    break
-
-                # Update progress
-                progress_percent = (i / total_reqs) * 100
-                progress_var.set(progress_percent)
-                progress_label.config(text=f"Analyzing requirement {i + 1}/{total_reqs} with LLM...")
-                progress_info.config(text=f"Code: {req_codes[i]}")
-                progress_win.update()
-
-                if not match_list:
-                    analysis_results.append({
-                        'Requirement Code': req_codes[i],
-                        'Requirement Text': req_texts[i],
-                        'LLM Analysis': 'No matches found, skipping analysis.'
-                    })
-                    continue
-
-                requirement_text = req_texts[i]
-                paragraphs = [self.report_paras[report_idx] for report_idx, score in match_list]
-                
-                llm_response = get_llm_analysis(requirement_text, paragraphs)
-
-                analysis_results.append({
-                    'Requirement Code': req_codes[i],
-                    'Requirement Text': req_texts[i],
-                    'LLM Analysis': llm_response
-                })
-
-            if not self._cancel_analysis:
-                # Complete progress
-                progress_var.set(100)
-                progress_label.config(text="Saving results...")
-                progress_info.config(text="Writing to file...")
-                progress_win.update()
-
-                df = pd.DataFrame(analysis_results)
-                self._export_dataframe(df, path, 'csv', "LLM Analysis Results")
-            else:
-                messagebox.showinfo("Cancelled", "LLM analysis was cancelled.")
-
-        except Exception as e:
-            messagebox.showerror("LLM Analysis Error", f"An error occurred during LLM analysis export:\n{e}")
-        finally:
-            progress_win.destroy()
-            self.status_label.config(text=translate("matching_completed_label"))
 
     def _show_help(self):
         """
@@ -444,161 +278,6 @@ class ComplianceApp(tk.Tk):
         text_area.tag_config("h1", font=("Segoe UI", 16, "bold"), spacing3=10)
         text_area.tag_config("bold", font=("Segoe UI", 10, "bold"))
         text_area.config(state=tk.DISABLED)
-
-    def _get_save_path(self, file_type, default_name):
-        """
-        Opens a save dialog and returns the selected file path.
-
-        Args:
-            file_type (str): The type of file to save (e.g., 'csv', 'excel', 'pdf').
-            default_name (str): The default name for the file.
-
-        Returns:
-            str: The selected file path.
-        """
-        file_types = {
-            'csv': [("CSV File", "*.csv")],
-            'excel': [("Excel File", "*.xlsx")],
-            'pdf': [("PDF File", "*.pdf")]
-        }
-        return filedialog.asksaveasfilename(
-            defaultextension=f".{file_type}",
-            filetypes=file_types[file_type],
-            initialfile=default_name,
-            title=f"{translate('export_as')} {file_type.upper()}"
-        )
-
-    def export_requirements(self, file_type):
-        """
-        Exports the extracted requirements to a file in the specified format (CSV, Excel, PDF).
-
-        Args:
-            file_type (str): The format to export the requirements (e.g., 'csv', 'excel', 'pdf').
-        """
-        if not self.requirements_data:
-            messagebox.showwarning(translate("no_data"), translate("no_reqs_to_export"))
-            return
-        
-        path = self._get_save_path(file_type, "requirements")
-        if not path: return
-
-        df = pd.DataFrame(list(self.requirements_data.items()), columns=['Code', 'Requirement Text'])
-        self._export_dataframe(df, path, file_type, "Requirements List")
-
-    def export_report_paras(self, file_type):
-        """
-        Exports the extracted report paragraphs to a file in the specified format (CSV, Excel, PDF).
-
-        Args:
-            file_type (str): The format to export the report paragraphs (e.g., 'csv', 'excel', 'pdf').
-        """
-        if not self.report_paras:
-            messagebox.showwarning(translate("no_data"), translate("no_paras_to_export"))
-            return
-
-        path = self._get_save_path(file_type, "report_paragraphs")
-        if not path: return
-
-        df = pd.DataFrame(self.report_paras, columns=['Parsed Report Paragraphs'])
-        self._export_dataframe(df, path, file_type, "Report Paragraphs")
-
-    def export_matches(self, file_type):
-        """
-        Exports the matching results between requirements and report paragraphs to a file in the specified format (CSV, Excel, PDF).
-
-        Args:
-            file_type (str): The format to export the matching results (e.g., 'csv', 'excel', 'pdf').
-        """
-        if not self.matches:
-            messagebox.showwarning(translate("no_data"), translate("no_matches_to_export"))
-            return
-        
-        path = self._get_save_path(file_type, "matching_results")
-        if not path: return
-
-        # Prepare data for export
-        export_data = []
-        req_codes = list(self.requirements_data.keys())
-        req_texts = list(self.requirements_data.values())
-
-        for i, match_list in enumerate(self.matches):
-            for report_idx, score in match_list:
-                export_data.append({
-                    'Requirement Code': req_codes[i],
-                    'Requirement Text': req_texts[i],
-                    'Matched Report Paragraph': self.report_paras[report_idx],
-                    'Score': f"{score:.4f}"
-                })
-        
-        df = pd.DataFrame(export_data)
-        self._export_dataframe(df, path, file_type, "Matching Results")
-
-    def _export_dataframe(self, df, path, file_type, title):
-        """Helper function to export a Pandas DataFrame to the specified file type."""
-        try:
-            if file_type == 'csv':
-                df.to_csv(path, index=False, sep=';', encoding='utf-8-sig')
-            elif file_type == 'excel':
-                df.to_excel(path, index=False)
-            elif file_type == 'pdf':
-                self._export_df_to_pdf(df, path, title)
-            
-            messagebox.showinfo(translate("export_successful"), translate("export_successful_text", path=path))
-        except Exception as e:
-            messagebox.showerror(translate("export_error"), translate("export_error_text", e=e))
-
-    def _export_df_to_pdf(self, df, path, title):
-        """Creates a PDF from a DataFrame, formatting the data as a flowing list."""
-        doc = SimpleDocTemplate(path, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
-        styles = getSampleStyleSheet()
-        
-        # Custom styles for a clean outline
-        styles.add(ParagraphStyle(name='ReqCode', fontName='Helvetica-Bold', fontSize=12, spaceAfter=6))
-        styles.add(ParagraphStyle(name='MatchScore', fontName='Helvetica-Oblique', fontSize=10, spaceAfter=4, textColor=colors.darkblue))
-        styles.add(ParagraphStyle(name='SubHeading', fontName='Helvetica-Bold', fontSize=10, spaceBefore=8, spaceAfter=4, textColor=colors.darkslategray))
-        
-        elements = []
-        elements.append(Paragraph(title, styles['h1']))
-        elements.append(Spacer(1, 24))
-
-        # Depending on the DataFrame content, a different list formatting is used.
-        # Case 1: Export of matching results (grouped)
-        if 'Requirement Code' in df.columns:
-            # Group results by requirement, so each is listed only once.
-            grouped = df.groupby(['Requirement Code', 'Requirement Text'])
-            
-            for (code, text), group in grouped:
-                # Output requirement title and text once
-                elements.append(Paragraph(f"Requirement: {code}", styles['ReqCode']))
-                elements.append(Paragraph(text, styles['Normal']))
-                elements.append(Spacer(1, 12))
-                
-                elements.append(Paragraph("Matched Report Paragraphs:", styles['SubHeading']))
-                
-                # List all matches for this requirement
-                for index, row in group.iterrows():
-                    elements.append(Paragraph(f"Score: {row['Score']}", styles['MatchScore']))
-                    elements.append(Paragraph(row['Matched Report Paragraph'], styles['Normal']))
-                    elements.append(Spacer(1, 12)) # Space between individual matches
-                
-                # Separator line for better readability between requirement groups
-                elements.append(Spacer(1, 24))
-
-        # Case 2: Export of requirements
-        elif 'Code' in df.columns:
-            for index, row in df.iterrows():
-                elements.append(Paragraph(row['Code'], styles['ReqCode']))
-                elements.append(Paragraph(row['Requirement Text'], styles['Normal']))
-                elements.append(Spacer(1, 12))
-
-        # Case 3: Simple export (e.g., just report paragraphs)
-        else:
-            for index, row in df.iterrows():
-                # Takes the content of the first column
-                elements.append(Paragraph(str(row[0]), styles['Normal']))
-                elements.append(Spacer(1, 12))
-
-        doc.build(elements)
 
     def _switch_language(self):
         """

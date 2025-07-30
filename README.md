@@ -35,6 +35,8 @@ The tool extracts requirements from standards and matches relevant passages from
   - `embedder.py` – encodes text using Sentence-BERT
   - `matcher.py` – matches requirements to report paragraphs
   - `analyze.py` – performs qualitative analysis using a local LLM
+  - `file_handler.py` – handles file selection and processing
+  - `exporter.py` – handles exporting data to CSV, Excel, and PDF formats
   - `UI.py` – graphical user interface for single-report analysis
   - `MultiReporterUI.py` – graphical user interface for multi-report analysis
 - `scripts/` – optional scripts

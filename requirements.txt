@@ -6,7 +6,4 @@ pandas>=1.1.0
 reportlab>=3.5.0
 tkintertable>=1.3.2  # For the GUI
 sentence-transformers>=2.2.0
-# Optional: for scripts/extract_requirements_openai_llm.py
-# openai>=1.0.0
-# Optional: for scripts/extract_requirements_institutional_api.py
-# requests>=2.25.0
+openpyxl>=3.0.0
