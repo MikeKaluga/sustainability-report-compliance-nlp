@@ -42,6 +42,7 @@ The tool extracts requirements from standards and matches relevant passages from
   - `menu_manager.py` – configures the export menu
   - `UI.py` – graphical user interface for single-report analysis
   - `MultiReporterUI.py` – graphical user interface for multi-report analysis
+  - `event_handlers.py` – manages event-driven interactions in the GUI, such as button clicks and user input validation
 - `scripts/` – optional scripts
 
 ## How to Run

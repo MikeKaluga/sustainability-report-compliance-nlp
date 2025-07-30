@@ -30,14 +30,12 @@ from analyze import run_llm_analysis  # Analyze matching results with a local LL
 from help_info import show_help, show_about  # Import the help and about functions
 from language_manager import switch_language_and_update_ui  # Import the new function
 from menu_manager import configure_export_menu  # Import the new function
+from event_handlers import handle_requirement_selection  # Import the new function
 
 # --- File and Export functionality imports ---
 from file_handler import select_standard_file, select_report_file
 from exporter import (
     is_export_available,
-    export_requirements,
-    export_report_paras,
-    export_matches,
     export_llm_analysis as export_llm_analysis_func
 )
 
@@ -113,7 +111,7 @@ class ComplianceApp(tk.Tk):
 
         self.req_listbox = Listbox(self.list_container, yscrollcommand=self.req_scrollbar.set)
         self.req_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.req_listbox.bind('<<ListboxSelect>>', self.on_requirement_select)
+        self.req_listbox.bind('<<ListboxSelect>>', lambda event: handle_requirement_selection(self, event))
         self.req_scrollbar.config(command=self.req_listbox.yview)
 
         # --- Right pane: Requirement text and matches ---
@@ -169,41 +167,6 @@ class ComplianceApp(tk.Tk):
         self.export_menu.entryconfig(2, state=tk.NORMAL)  # Use index 2 for "Export Matching Results"
         self.export_llm_btn.config(state=tk.NORMAL)
         messagebox.showinfo(translate("completed"), translate("matching_completed"))
-
-    def on_requirement_select(self, event):
-        """
-        Handles the selection of a requirement from the listbox and displays its matches.
-        """
-        selected_indices = self.req_listbox.curselection()
-        if not selected_indices: return
-        
-        index = selected_indices[0]
-        selected_code = self.req_listbox.get(index)
-        req_text = self.requirements_data.get(selected_code, "Text not found.")
-        
-        self.text_display.config(state=tk.NORMAL)
-        self.text_display.delete('1.0', tk.END)
-        
-        self.text_display.insert(tk.END, translate("req_text_label") + "\n", "h1")
-        self.text_display.insert(tk.END, f"{req_text}\n\n")
-        
-        if self.matches and index < len(self.matches):
-            self.text_display.insert(tk.END, translate("matches_found_label") + "\n", "h1")
-            match_list = self.matches[index]
-            if not match_list:
-                self.text_display.insert(tk.END, translate("no_matches_found"))
-                self.analyze_llm_btn.config(state=tk.DISABLED)
-            else:
-                for report_idx, score in match_list:
-                    self.text_display.insert(tk.END, f"(Score: {score:.2f})\n", "score")
-                    self.text_display.insert(tk.END, f"{self.report_paras[report_idx]}\n\n")
-                self.analyze_llm_btn.config(state=tk.NORMAL)
-        else:
-            self.analyze_llm_btn.config(state=tk.DISABLED)
-
-        self.text_display.config(state=tk.DISABLED)
-        self.text_display.tag_config("h1", font=("Segoe UI", 12, "bold"), spacing1=5, spacing3=5)
-        self.text_display.tag_config("score", font=("Segoe UI", 10, "italic"), foreground="blue")
 
 if __name__ == '__main__':
     if not os.path.exists('data'):
