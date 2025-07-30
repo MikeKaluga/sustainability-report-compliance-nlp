@@ -33,9 +33,7 @@ The tool extracts requirements from standards and matches relevant passages from
   - `analyze.py` – performs qualitative analysis using a local LLM
   - `UI.py` – graphical user interface for single-report analysis
   - `MultiReporterUI.py` – graphical user interface for multi-report analysis
-- `scripts/` – optional scripts for:
-  - Extracting requirements using various LLMs (e.g., institutionally hosted large LLMs, internationally available LLMs like ChatGPT, or small local LLMs like T5)
-  - Adapting extractors to specific standards such as GRI or ESRS
+- `scripts/` – optional scripts
 
 ## How to Run
 1. **Set up a virtual environment** (recommended):
