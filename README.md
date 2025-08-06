@@ -10,14 +10,16 @@ The tool extracts requirements from standards and matches relevant passages from
   - Multi-report analysis
 - PDF parsing and preprocessing pipeline
 - Automatic extraction of requirements from standards
+- Sub-point (indicator) extraction and matching for granular compliance analysis
 - Segment-level semantic analysis using Sentence-BERT
-- Matching report content to specific GRI/ESRS indicators
+- Matching report content to specific GRI/ESRS indicators and sub-points
 - Qualitative analysis of matches using a local LLM
-- Export functionality for:
+- **Export functionality for:**
   - Requirements
   - Report paragraphs
   - Matching results
   - LLM analysis results
+  - Sub-point level results
 - Advanced filtering of irrelevant content (e.g., footers, headers)
 - Multilingual support (English and German) with a language toggle
 
@@ -29,6 +31,7 @@ The tool extracts requirements from standards and matches relevant passages from
 - Scikit-learn
 - Tkinter (GUI)
 - Local LLMs (e.g., Llama 8B)
+- Ollama for local LLM execution
 
 ## Project Structure
 - `data/` – input sustainability reports and standards
