@@ -14,7 +14,7 @@ Usage:
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-def match_requirements_to_report(req_embeddings, report_embeddings, top_k=3):
+def match_requirements_to_report(req_embeddings, report_embeddings, top_k=5):
     """
     Matches requirements to report paragraphs based on cosine similarity.
 

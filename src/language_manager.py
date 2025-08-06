@@ -38,4 +38,5 @@ def update_ui_texts(app):
     app.faq_menu.entryconfig(1, label=translate("about"))
 
     app.list_container.config(text=translate("requirements_from_standard"))
+    app.sub_point_container.config(text=translate("sub_points"))
     app.text_container.config(text=translate("requirement_text_and_matches"))

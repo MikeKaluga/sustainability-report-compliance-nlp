@@ -149,7 +149,8 @@ def extract_requirements(text):
         text (str): The input text containing requirements and their descriptions.
 
     Returns:
-        dict: A dictionary where keys are requirement codes and values are the corresponding text segments.
+        dict: A dictionary where keys are requirement codes and values are dictionaries
+              containing the full text ('full_text') and a list of sub-points ('sub_points').
     """
     req_matches = find_requirements(text)
     requirements = {}
@@ -160,11 +161,19 @@ def extract_requirements(text):
         segment = text[start_idx:end_idx]
         
         # Process the segment based on its standard type
-        processed_segment = _process_segment(segment, standard_type)
+        full_text, sub_points = _process_segment(segment, standard_type)
         
         # Append the segment to the corresponding requirement code, only if content was found
-        if processed_segment:
-            requirements[code] = requirements.get(code, "") + " " + processed_segment
+        if full_text:
+            if code not in requirements:
+                requirements[code] = {'full_text': "", 'sub_points': []}
+            
+            requirements[code]['full_text'] += " " + full_text
+            requirements[code]['sub_points'].extend(sub_points)
+
+    # Clean up the final dictionary
+    for code in requirements:
+        requirements[code]['full_text'] = requirements[code]['full_text'].strip()
 
     return requirements
 
@@ -178,10 +187,13 @@ def _process_segment(segment, standard_type):
         standard_type (str): The type of standard ('esrs' or 'gri').
     
     Returns:
-        str: Processed segment with sub-points included.
+        tuple: A tuple containing:
+               - str: Processed segment with sub-points included.
+               - list: A list of individual sub-points.
     """
     lines = segment.split('\n')
     result_parts = []
+    sub_points = []
     current_part = ""
     ignoring_footnote = False
 
@@ -209,6 +221,9 @@ def _process_segment(segment, standard_type):
             ignoring_footnote = False
             if current_part:
                 result_parts.append(current_part)
+                # If the previous part was a subpoint, add it to sub_points list
+                if esrs_subpoint_pattern.match(current_part) or gri_subpoint_pattern.match(current_part):
+                    sub_points.append(current_part)
             current_part = line
             continue
 
@@ -229,6 +244,8 @@ def _process_segment(segment, standard_type):
     # Add the last part if it exists
     if current_part and not ignoring_footnote:
         result_parts.append(current_part)
+        if esrs_subpoint_pattern.match(current_part) or gri_subpoint_pattern.match(current_part):
+            sub_points.append(current_part)
     
     # For GRI, we only want the sub-points, so we filter out the main description.
     if standard_type == 'gri':
@@ -237,7 +254,7 @@ def _process_segment(segment, standard_type):
         if result_parts and not gri_subpoint_pattern.match(result_parts[0]):
              result_parts.pop(0)
 
-    return " ".join(result_parts).strip()
+    return " ".join(result_parts).strip(), sub_points
 
 
 # ------------------------------------------------------------------
@@ -251,7 +268,8 @@ def extract_requirements_from_standard_pdf(pdf_path):
         pdf_path (str): Path to the standard PDF file.
 
     Returns:
-        dict: A dictionary where keys are requirement codes and values are the corresponding text segments.
+        dict: A dictionary where keys are requirement codes and values are dictionaries
+              containing the full text and a list of sub-points.
     """
     full_text = extract_text_from_pdf(pdf_path)  # Extract and clean text from the PDF
     req_dict = extract_requirements(full_text)  # Extract requirements from the text
@@ -259,7 +277,7 @@ def extract_requirements_from_standard_pdf(pdf_path):
     # Post-process the last requirement to remove unwanted sections (e.g., glossary, appendix)
     if req_dict:
         last_key = list(req_dict.keys())[-1]  # Get the last requirement code
-        paragraph = req_dict[last_key]
+        paragraph = req_dict[last_key]['full_text']
 
         def trim_end_noise(text):
             """
@@ -278,6 +296,6 @@ def extract_requirements_from_standard_pdf(pdf_path):
                     return text[:idx]  # Trim the text at the marker
             return text
 
-        req_dict[last_key] = trim_end_noise(paragraph)  # Clean the last requirement
+        req_dict[last_key]['full_text'] = trim_end_noise(paragraph)  # Clean the last requirement
 
     return req_dict

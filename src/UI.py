@@ -73,6 +73,7 @@ class ComplianceApp(tk.Tk):
         self.report_emb = None  # Embeddings for the report paragraphs
         self.matches = None  # Matching results between requirements and report paragraphs
         self.embedder = SBERTEmbedder()  # Initialize the Sentence-BERT embedder
+        self.current_req_code = None  # Store the currently selected requirement code
 
         # --- Create the GUI layout ---
         self._create_menu()  # Create the menu bar
@@ -111,8 +112,20 @@ class ComplianceApp(tk.Tk):
 
         self.req_listbox = Listbox(self.list_container, yscrollcommand=self.req_scrollbar.set)
         self.req_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.req_listbox.bind('<<ListboxSelect>>', lambda event: handle_requirement_selection(self, event))
+        self.req_listbox.bind('<<ListboxSelect>>', self._on_requirement_select)
         self.req_scrollbar.config(command=self.req_listbox.yview)
+
+        # --- Middle pane: List of sub-points ---
+        self.sub_point_container = ttk.LabelFrame(bottom_frame, text=translate("sub_points"), padding="5")
+        bottom_frame.add(self.sub_point_container, weight=2)
+
+        self.sub_point_scrollbar = Scrollbar(self.sub_point_container)
+        self.sub_point_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.sub_point_listbox = Listbox(self.sub_point_container, yscrollcommand=self.sub_point_scrollbar.set)
+        self.sub_point_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.sub_point_listbox.bind('<<ListboxSelect>>', self._on_sub_point_select)
+        self.sub_point_scrollbar.config(command=self.sub_point_listbox.yview)
 
         # --- Right pane: Requirement text and matches ---
         self.text_container = ttk.LabelFrame(bottom_frame, text=translate("requirement_text_and_matches"), padding="5")
@@ -122,7 +135,7 @@ class ComplianceApp(tk.Tk):
         action_frame = ttk.Frame(self.text_container)
         action_frame.pack(fill=tk.X, pady=(0, 5))
 
-        self.analyze_llm_btn = ttk.Button(action_frame, text="Analyze with LLM", command=lambda: run_llm_analysis(self, self.req_listbox, self.requirements_data, self.matches, self.report_paras, self.status_label, self.update_idletasks, translate), state=tk.DISABLED)
+        self.analyze_llm_btn = ttk.Button(action_frame, text="Analyze with LLM", command=lambda: run_llm_analysis(self, self.current_req_code, self.requirements_data, self.matches, self.report_paras, self.status_label, self.update_idletasks, translate), state=tk.DISABLED)
         self.analyze_llm_btn.pack(side=tk.RIGHT)
 
         self.text_display = Text(self.text_container, wrap=tk.WORD, state=tk.DISABLED, font=("Segoe UI", 10))
@@ -154,18 +167,116 @@ class ComplianceApp(tk.Tk):
             messagebox.showwarning(translate("missing_libs"), 
                                    translate("missing_libs_text"))
 
+    def _on_requirement_select(self, event):
+        """Handles selection of a requirement in the main listbox."""
+        # Only proceed if there is a selection. This prevents clearing the state
+        # when the listbox loses focus.
+        if not self.req_listbox.curselection():
+            return
+
+        selected_index = self.req_listbox.curselection()[0]
+        req_code = self.req_listbox.get(selected_index)
+
+        self.current_req_code = req_code
+
+        # Clear previous content from sub-point list and text display
+        self.sub_point_listbox.delete(0, tk.END)
+        self.text_display.config(state=tk.NORMAL)
+        self.text_display.delete(1.0, tk.END)
+        self.text_display.config(state=tk.DISABLED)
+        self.analyze_llm_btn.config(state=tk.DISABLED)
+
+        if req_code in self.requirements_data:
+            req_data = self.requirements_data[req_code]
+            if req_data['sub_points']:
+                # Populate sub-points list
+                for sub_point in req_data['sub_points']:
+                    self.sub_point_listbox.insert(tk.END, sub_point)
+            else:
+                # No sub-points, so display full text and matches directly
+                handle_requirement_selection(self, event)
+
+    def _on_sub_point_select(self, event):
+        """Handles selection of a sub-point in the sub-point listbox."""
+        #print("req_listbox.curselection():", self.req_listbox.curselection()) # Debugging output
+        #print("current_req_code:", self.current_req_code) # Debugging output
+        # print("sub_point_listbox.curselection():", self.sub_point_listbox.curselection()) # Debugging output
+        if not self.current_req_code or not self.sub_point_listbox.curselection():
+            print("Abbruch: Mindestens eine Auswahl fehlt.") # Debugging output
+            return
+
+        # Get selected sub-point text
+        sub_point_index = self.sub_point_listbox.curselection()[0]
+        sub_point_text = self.sub_point_listbox.get(sub_point_index)
+        #print("Ausgewählter Sub-Point Index:", sub_point_index) # Debugging output
+        #print("Ausgewählter Sub-Point Text:", sub_point_text) # Debugging output
+
+        # Display the details for this sub-point, ensuring the key is stripped
+        handle_requirement_selection(self, event, sub_point_text=sub_point_text.strip())
+
     def run_matching(self):
         """
         Performs the matching between the requirements and the report paragraphs.
+        The results are structured to map matches to individual sub-points if they exist.
         """
         self.status_label.config(text=translate("performing_matching"))
         self.update_idletasks()
+
+        # Debugging: Print the number of embeddings
+        if self.standard_emb is not None:
+            print(f"Number of standard embeddings: {len(self.standard_emb)}")
+        else:
+            print("Standard embeddings are None.")
+
+        if self.report_emb is not None:
+            print(f"Number of report embeddings: {len(self.report_emb)}")
+        else:
+            print("Report embeddings are None.")
+
+        # This returns a flat list of matches for all texts that were embedded (sub-points or full texts)
+        all_matches = match_requirements_to_report(self.standard_emb, self.report_emb, top_k=5)
+        print(f"Standard embedding shape: {self.standard_emb.shape if self.standard_emb is not None else 'None'}")
+        print(f"Report embedding shape: {self.report_emb.shape if self.report_emb is not None else 'None'}")
+        print(f"Number of matches: {len(all_matches)}")
+
+        # Debugging: Print the number of matches
+        print(f"Number of matches: {len(all_matches)}")
+
+        # Debugging: Print all matches
+        #print("All matches:")
+        #for i, match_list in enumerate(all_matches):
+            #print(f"Requirement {i + 1}:")
+            #for match in match_list:
+                #print(f"  Paragraph Index: {match[0]}, Similarity Score: {match[1]:.4f}")
+
+        # Re-structure the flat list of matches into a dictionary mapping text -> matches
+        self.matches = {}
         
-        self.matches = match_requirements_to_report(self.standard_emb, self.report_emb, top_k=5)
-        
+        # Get all texts that were embedded, in the correct order
+        standard_texts_for_embedding = []
+        for req_data in self.requirements_data.values():
+            if req_data['sub_points']:
+                # Clean each sub-point before adding it
+                cleaned_sub_points = [sp.strip() for sp in req_data['sub_points']]
+                standard_texts_for_embedding.extend(cleaned_sub_points)
+            else:
+                standard_texts_for_embedding.append(req_data['full_text'].strip())
+
+        # Map the matches back to the corresponding text
+        for i, text in enumerate(standard_texts_for_embedding):
+            if i < len(all_matches):
+                self.matches[text.strip()] = all_matches[i]
+
+        # Debugging: Print the keys that were stored in the matches dictionary
+        #print("\n--- Keys stored in self.matches ---")
+        #for key in self.matches.keys():
+            #print(f"'{key}'")
+        #print("-----------------------------------\n")
+
         self.status_label.config(text=translate("matching_completed_label"))
         self.export_menu.entryconfig(2, state=tk.NORMAL)  # Use index 2 for "Export Matching Results"
         self.export_llm_btn.config(state=tk.NORMAL)
+        self.analyze_llm_btn.config(state=tk.NORMAL)  # Enable LLM analysis after matching
         messagebox.showinfo(translate("completed"), translate("matching_completed"))
 
 if __name__ == '__main__':

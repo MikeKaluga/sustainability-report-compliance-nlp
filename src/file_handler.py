@@ -37,8 +37,15 @@ def select_standard_file(app):
         app.status_label.config(text=f"{len(app.requirements_data)} {translate('reqs_loaded')}")
         app.update_idletasks()
         
-        standard_paras = list(app.requirements_data.values())
-        app.standard_emb = app.embedder.encode(standard_paras)
+        # Prepare texts for embedding: use sub-points if available, otherwise full text
+        standard_texts_for_embedding = []
+        for req_code, req_data in app.requirements_data.items():
+            if req_data['sub_points']:
+                standard_texts_for_embedding.extend(req_data['sub_points'])
+            else:
+                standard_texts_for_embedding.append(req_data['full_text'])
+        
+        app.standard_emb = app.embedder.encode(standard_texts_for_embedding)
         
         app.status_label.config(text=translate("standard_ready"))
         app.select_report_btn.config(state=tk.NORMAL)

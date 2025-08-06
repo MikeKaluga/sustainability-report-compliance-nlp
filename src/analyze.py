@@ -27,25 +27,55 @@ def get_llm_analysis(requirement_text, paragraphs):
     This is a non-GUI function intended for batch processing.
 
     Args:
-        requirement_text (str): The text of the requirement.
+        requirement_text (str or dict): The text of the requirement or dict with 'text' and 'sub_requirements'.
         paragraphs (list): A list of matched paragraph strings.
 
     Returns:
         str: The LLM's analysis response or an error message.
     """
+    if isinstance(requirement_text, dict):
+        main_text = requirement_text.get('text', '')
+        sub_requirements = requirement_text.get('sub_requirements', [])
+    else:
+        main_text = requirement_text
+        sub_requirements = []
+
+    sub_req_prompt_part = ""
+    if sub_requirements:
+        sub_req_analysis_prompts = []
+        for i, sub_req in enumerate(sub_requirements):
+            sub_req_analysis_prompts.append(f"""
+Sub-requirement {i+1}: "{sub_req}"
+- Fulfillment (0-2):
+- Justification:""")
+        
+        sub_req_prompt_part = f"""
+First, analyze each of the following sub-requirements individually based on the provided paragraphs. For each, provide a fulfillment score and a brief justification.
+
+{''.join(sub_req_analysis_prompts)}
+
+Finally, provide an overall assessment:
+- Overall Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
+- Overall Justification: ...
+"""
+    else:
+        sub_req_prompt_part = """
+Based on your analysis, please provide your answer in the format:
+Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
+Justification: ...
+"""
+
     prompt = f"""
 You are an expert in sustainability reporting according to ESRS and GRI.
 Refer to the following requirement:
 
-"{requirement_text}"
+"{main_text}"
 
 Now analyze the following paragraphs from a sustainability report and answer:
 - Which elements of the requirement are already present in the text?
 - What is missing to fully meet the requirement?
 
-Based on your analysis, please provide your answer in the format:
-Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
-Justification: ...
+{sub_req_prompt_part}
 
 Paragraphs:
 {chr(10).join(paragraphs)}
@@ -109,7 +139,8 @@ def run_llm_analysis(parent, req_listbox, requirements_data, matches, report_par
     Args:
         parent (tk.Tk): The parent Tkinter window.
         req_listbox (tk.Listbox): The listbox containing the requirements.
-        requirements_data (dict): A dictionary of requirements with their codes as keys and texts as values.
+        requirements_data (dict): A dictionary of requirements with their codes as keys and values that can be
+                                either a string (full text) or a dictionary with 'text' and 'sub_requirements'.
         matches (list): A list of matching results for each requirement, where each entry contains tuples of
                         (report paragraph index, similarity score).
         report_paras (list): A list of paragraphs extracted from the report.
@@ -129,13 +160,49 @@ def run_llm_analysis(parent, req_listbox, requirements_data, matches, report_par
 
     index = selected_indices[0]
     requirement_code = req_listbox.get(index)
-    requirement_text = requirements_data.get(requirement_code, "")
+    requirement_info = requirements_data.get(requirement_code)
+
+    if not requirement_info:
+        messagebox.showinfo("LLM Analysis", "Requirement text not found.")
+        return
+
+    if isinstance(requirement_info, dict):
+        requirement_text = requirement_info.get('text', '')
+        sub_requirements = requirement_info.get('sub_requirements', [])
+    else:
+        requirement_text = requirement_info
+        sub_requirements = []
     
     if not matches or index >= len(matches) or not matches[index]:
         messagebox.showinfo("LLM Analysis", "No matches available to analyze for this requirement.")
         return
 
     paragraphs = [report_paras[report_idx] for report_idx, score in matches[index]]
+
+    sub_req_prompt_part = ""
+    if sub_requirements:
+        sub_req_analysis_prompts = []
+        for i, sub_req in enumerate(sub_requirements):
+            sub_req_analysis_prompts.append(f"""
+Sub-requirement {i+1}: "{sub_req}"
+- Fulfillment (0-2):
+- Justification:""")
+        
+        sub_req_prompt_part = f"""
+First, analyze each of the following sub-requirements individually based on the provided paragraphs. For each, provide a fulfillment score and a brief justification.
+
+{''.join(sub_req_analysis_prompts)}
+
+Finally, provide an overall assessment:
+- Overall Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
+- Overall Justification: ...
+"""
+    else:
+        sub_req_prompt_part = """
+Based on your analysis, please provide your answer in the format:
+Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
+Justification: ...
+"""
 
     prompt = f"""
 You are an expert in sustainability reporting according to ESRS and GRI.
@@ -147,9 +214,7 @@ Now analyze the following paragraphs from a sustainability report and answer:
 - Which elements of the requirement are already present in the text?
 - What is missing to fully meet the requirement?
 
-Based on your analysis, please provide your answer in the format:
-Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
-Justification: ...
+{sub_req_prompt_part}
 
 Paragraphs:
 {chr(10).join(paragraphs)}
