@@ -135,7 +135,7 @@ class ComplianceApp(tk.Tk):
         action_frame = ttk.Frame(self.text_container)
         action_frame.pack(fill=tk.X, pady=(0, 5))
 
-        self.analyze_llm_btn = ttk.Button(action_frame, text="Analyze with LLM", command=lambda: run_llm_analysis(self, self.current_req_code, self.requirements_data, self.matches, self.report_paras, self.status_label, self.update_idletasks, translate), state=tk.DISABLED)
+        self.analyze_llm_btn = ttk.Button(action_frame, text="Analyze with LLM", command=self._run_llm_analysis, state=tk.DISABLED)
         self.analyze_llm_btn.pack(side=tk.RIGHT)
 
         self.text_display = Text(self.text_container, wrap=tk.WORD, state=tk.DISABLED, font=("Segoe UI", 10))
@@ -213,6 +213,27 @@ class ComplianceApp(tk.Tk):
 
         # Display the details for this sub-point, ensuring the key is stripped
         handle_requirement_selection(self, event, sub_point_text=sub_point_text.strip())
+
+    def _run_llm_analysis(self):
+        """Runs LLM analysis with the currently selected sub-point if available."""
+        selected_sub_point = None
+        
+        # Check if a sub-point is selected
+        if self.sub_point_listbox.curselection():
+            sub_point_index = self.sub_point_listbox.curselection()[0]
+            selected_sub_point = self.sub_point_listbox.get(sub_point_index).strip()
+        
+        run_llm_analysis(
+            self, 
+            self.current_req_code, 
+            self.requirements_data, 
+            self.matches, 
+            self.report_paras, 
+            self.status_label, 
+            self.update_idletasks, 
+            translate, 
+            selected_sub_point=selected_sub_point
+        )
 
     def run_matching(self):
         """
