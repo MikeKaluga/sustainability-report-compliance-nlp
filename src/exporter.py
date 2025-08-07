@@ -100,13 +100,15 @@ def _export_df_to_pdf(df, path, title):
     elif 'Code' in df.columns:
         for _, row in df.iterrows():
             elements.extend([
-                Paragraph(row['Code'], styles['ReqCode']),
+                Paragraph(f"Requirement: {row['Code']}", styles['ReqCode']),
                 Paragraph(row['Requirement Text'], styles['Normal']),
                 Spacer(1, 12)
             ])
     else:
         for _, row in df.iterrows():
-            elements.extend([Paragraph(str(row[0]), styles['Normal']), Spacer(1, 12)])
+            # Convert row to string properly
+            text = str(row.iloc[0]) if len(row) > 0 else "No data"
+            elements.extend([Paragraph(text, styles['Normal']), Spacer(1, 12)])
 
     doc.build(elements)
 
@@ -136,7 +138,18 @@ def export_requirements(requirements_data, file_type):
         return
     path = _get_save_path(file_type, "requirements")
     if not path: return
-    df = pd.DataFrame(list(requirements_data.items()), columns=['Code', 'Requirement Text'])
+    
+    # Convert requirements_data to the expected format
+    export_data = []
+    for code, req_data in requirements_data.items():
+        if isinstance(req_data, dict):
+            text = req_data['full_text']
+        else:
+            # Fallback for old format
+            text = req_data
+        export_data.append({'Code': code, 'Requirement Text': text})
+    
+    df = pd.DataFrame(export_data)
     _export_dataframe(df, path, file_type, "Requirements List")
 
 def export_report_paras(report_paras, file_type):
@@ -215,7 +228,15 @@ def export_llm_analysis(app):
 
     analysis_results = []
     req_codes = list(app.requirements_data.keys())
-    req_texts = list(app.requirements_data.values())
+    # Handle new requirements_data structure
+    req_texts = []
+    for req_data in app.requirements_data.values():
+        if isinstance(req_data, dict):
+            req_texts.append(req_data['full_text'])
+        else:
+            # Fallback for old format
+            req_texts.append(req_data)
+    
     total_reqs = len(req_codes)
 
     try:

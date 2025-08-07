@@ -235,6 +235,17 @@ class ComplianceApp(tk.Tk):
             selected_sub_point=selected_sub_point
         )
 
+    def get_requirements_for_export(self):
+        """Convert requirements_data to the format expected by export functions."""
+        export_data = {}
+        for code, req_data in self.requirements_data.items():
+            if isinstance(req_data, dict):
+                export_data[code] = req_data['full_text']
+            else:
+                # Fallback for old format
+                export_data[code] = req_data
+        return export_data
+
     def run_matching(self):
         """
         Performs the matching between the requirements and the report paragraphs.
