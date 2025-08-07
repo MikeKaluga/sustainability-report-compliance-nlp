@@ -288,19 +288,56 @@ def export_llm_analysis(app):
     ttk.Button(progress_win, text="Cancel", command=cancel_action).pack(pady=5)
 
     analysis_results = []
-    req_codes = list(app.requirements_data.keys())
-    # Handle new requirements_data structure
-    req_texts = []
-    for req_data in app.requirements_data.values():
-        if isinstance(req_data, dict):
-            req_texts.append(req_data['full_text'])
-        else:
-            # Fallback for old format
-            req_texts.append(req_data)
     
-    total_reqs = len(req_codes)
+    # Handle the new matches structure (dict mapping text -> matches)
+    if isinstance(app.matches, dict):
+        total_items = len(app.matches)
+        for i, (text, match_list) in enumerate(app.matches.items()):
+            if app._cancel_analysis:
+                break
+            
+            progress_var.set((i / total_items) * 100)
+            progress_info.config(text=f"Analyzing item {i + 1}/{total_items}")
+            progress_win.update()
 
-    try:
+            # Find the corresponding requirement code for this text
+            req_code = "Unknown"
+            req_text = text
+            
+            for code, req_data in app.requirements_data.items():
+                if isinstance(req_data, dict):
+                    if text == req_data['full_text'].strip():
+                        req_code = code
+                        req_text = req_data['full_text']
+                        break
+                    elif text in [sp.strip() for sp in req_data['sub_points']]:
+                        req_code = f"{code} (Sub-point)"
+                        req_text = text
+                        break
+                else:
+                    if text == req_data.strip():
+                        req_code = code
+                        req_text = req_data
+                        break
+
+            if not match_list:
+                analysis_results.append({'Requirement Code': req_code, 'Requirement Text': req_text, 'LLM Analysis': 'No matches found.'})
+                continue
+
+            paragraphs = [app.report_paras[idx] for idx, _ in match_list]
+            llm_response = get_llm_analysis(req_text, paragraphs)
+            analysis_results.append({'Requirement Code': req_code, 'Requirement Text': req_text, 'LLM Analysis': llm_response})
+    else:
+        # Old format fallback
+        req_codes = list(app.requirements_data.keys())
+        req_texts = []
+        for req_data in app.requirements_data.values():
+            if isinstance(req_data, dict):
+                req_texts.append(req_data['full_text'])
+            else:
+                req_texts.append(req_data)
+        
+        total_reqs = len(req_codes)
         for i, match_list in enumerate(app.matches):
             if app._cancel_analysis:
                 break
@@ -317,6 +354,7 @@ def export_llm_analysis(app):
             llm_response = get_llm_analysis(req_texts[i], paragraphs)
             analysis_results.append({'Requirement Code': req_codes[i], 'Requirement Text': req_texts[i], 'LLM Analysis': llm_response})
 
+    try:
         if not app._cancel_analysis:
             progress_var.set(100)
             progress_info.config(text="Saving results...")
