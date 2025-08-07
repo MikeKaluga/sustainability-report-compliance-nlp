@@ -183,17 +183,78 @@ def export_matches(matches, requirements_data, report_paras, file_type):
     path = _get_save_path(file_type, "matching_results")
     if not path: return
     
+    # Debug: Print the structure of matches and requirements_data
+    print(f"DEBUG: matches type: {type(matches)}")
+    print(f"DEBUG: matches keys (first 3): {list(matches.keys())[:3] if isinstance(matches, dict) else 'Not a dict'}")
+    print(f"DEBUG: requirements_data type: {type(requirements_data)}")
+    print(f"DEBUG: requirements_data keys (first 3): {list(requirements_data.keys())[:3]}")
+    
     export_data = []
-    req_codes = list(requirements_data.keys())
-    req_texts = list(requirements_data.values())
-    for i, match_list in enumerate(matches):
-        for report_idx, score in match_list:
-            export_data.append({
-                'Requirement Code': req_codes[i],
-                'Requirement Text': req_texts[i],
-                'Matched Report Paragraph': report_paras[report_idx],
-                'Score': f"{score:.4f}"
-            })
+    
+    # Handle the new matches structure (dict mapping text -> matches)
+    if isinstance(matches, dict):
+        for text, match_list in matches.items():
+            # Find the corresponding requirement code for this text
+            req_code = None
+            req_text = None
+            
+            for code, req_data in requirements_data.items():
+                if isinstance(req_data, dict):
+                    # Check if this text matches the full text or any sub-point
+                    if text == req_data['full_text'].strip():
+                        req_code = code
+                        req_text = req_data['full_text']
+                        break
+                    elif text in [sp.strip() for sp in req_data['sub_points']]:
+                        req_code = f"{code} (Sub-point)"
+                        req_text = text
+                        break
+                else:
+                    # Old format fallback
+                    if text == req_data.strip():
+                        req_code = code
+                        req_text = req_data
+                        break
+            
+            # If we couldn't find a matching requirement, use the text as both code and text
+            if req_code is None:
+                req_code = "Unknown"
+                req_text = text
+            
+            for report_idx, score in match_list:
+                export_data.append({
+                    'Requirement Code': req_code,
+                    'Requirement Text': req_text,
+                    'Matched Report Paragraph': report_paras[report_idx],
+                    'Score': f"{score:.4f}"
+                })
+    else:
+        # Old format: matches is a list
+        req_codes = list(requirements_data.keys())
+        req_texts = []
+        for req_data in requirements_data.values():
+            if isinstance(req_data, dict):
+                req_texts.append(req_data['full_text'])
+            else:
+                req_texts.append(req_data)
+        
+        for i, match_list in enumerate(matches):
+            for report_idx, score in match_list:
+                export_data.append({
+                    'Requirement Code': req_codes[i],
+                    'Requirement Text': req_texts[i],
+                    'Matched Report Paragraph': report_paras[report_idx],
+                    'Score': f"{score:.4f}"
+                })
+    
+    print(f"DEBUG: export_data length: {len(export_data)}")
+    if export_data:
+        print(f"DEBUG: First export entry: {export_data[0]}")
+    
+    if not export_data:
+        messagebox.showwarning(translate("no_data"), "No matching data could be processed for export.")
+        return
+    
     df = pd.DataFrame(export_data)
     _export_dataframe(df, path, file_type, "Matching Results")
 
