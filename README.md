@@ -3,7 +3,7 @@
 This project analyzes the compliance of corporate sustainability reports with established reporting standards (such as GRI and ESRS) using modern Natural Language Processing (NLP) methods.
 
 The tool extracts requirements from standards and matches relevant passages from sustainability reports to these requirements using semantic similarity techniques.
-
+![alt text](v1.0.png)
 ## Key Features
 - Unified entry point via `main.py`:
   - Single-report analysis
