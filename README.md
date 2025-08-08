@@ -3,7 +3,8 @@
 This project analyzes the compliance of corporate sustainability reports with established reporting standards (such as GRI and ESRS) using modern Natural Language Processing (NLP) methods.
 
 The tool extracts requirements from standards and matches relevant passages from sustainability reports to these requirements using semantic similarity techniques.
-![alt text](v1.0.png)
+![alt text](v1.2.png)
+
 ## Key Features
 - Unified entry point via `main.py`:
   - Single-report analysis
@@ -57,7 +58,12 @@ The tool extracts requirements from standards and matches relevant passages from
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
    ```
-2. Place the standard PDF and report PDFs in the `data/` folder.
+2. Place the standard PDF and report PDFs in the `data/` folder.  
+   You can download the required PDFs from the following links:
+   - **GRI Standards**: [GRI Standards (English)](https://globalreporting.org/how-to-use-the-gri-standards/gri-standards-english-language/)
+   - **ESRS Standards**: [Amended ESRS 0](https://www.efrag.org/en/amended-esrs-0)
+   - **Sustainability Reports**: [Responsibility Reports by Industry](https://www.responsibilityreports.com/Browse/Industry)
+
 3. Run the application:
    ```bash
    python main.py
