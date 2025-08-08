@@ -29,6 +29,7 @@ from matcher import match_requirements_to_report
 from translations import translate, switch_language
 from analyze import analyze_matches_with_llm
 from exporter import export_requirements, is_export_available
+from extractor import detect_standard_from_pdf
 
 class MultiReportApp(tk.Tk):
     """
@@ -123,12 +124,16 @@ class MultiReportApp(tk.Tk):
                 messagebox.showerror(translate("error_processing_standard"), translate("no_reqs_found"))
                 return
 
+            # --- Detected standard (ESRS/GRI/UNKNOWN) ---
+            self.detected_standard = detect_standard_from_pdf(self.standard_pdf_path)
+
             req_texts = list(self.requirements_data.values())
             self.standard_emb = self.embedder.encode(req_texts)
             
             self.selected_files_list.insert(tk.END, f"Standard: {os.path.basename(self.standard_pdf_path)}")
             self.select_reports_btn.config(state=tk.NORMAL)
-            self.status_label.config(text=translate("standard_ready_multi"))
+            # --- Include detected standard in status ---
+            self.status_label.config(text=f"{translate('standard_ready_multi')} {translate('standard_detected', standard=self.detected_standard or 'UNKNOWN')}")
         except Exception as e:
             messagebox.showerror(translate("error_processing_standard"), str(e))
             self.status_label.config(text=translate("error_try_again"))
@@ -418,7 +423,8 @@ if __name__ == '__main__':
         "select_export_format": "Select export format:",
         "no_results_to_export": "No analysis results to export.",
         "llm_analysis_progress": "Performing LLM analysis on report {current}/{total}: {name}...",
-        "llm_analysis_complete": "LLM analysis complete. Results updated."
+        "llm_analysis_complete": "LLM analysis complete. Results updated.",
+        "standard_detected": "Detected standard: {standard}"
     }
     
     new_de = {
@@ -442,7 +448,8 @@ if __name__ == '__main__':
         "select_export_format": "Export-Format auswählen:",
         "no_results_to_export": "Keine Analyseergebnisse zum Exportieren.",
         "llm_analysis_progress": "Führe LLM-Analyse für Bericht {current}/{total} durch: {name}...",
-        "llm_analysis_complete": "LLM-Analyse abgeschlossen. Ergebnisse aktualisiert."
+        "llm_analysis_complete": "LLM-Analyse abgeschlossen. Ergebnisse aktualisiert.",
+        "standard_detected": "Erkannter Standard: {standard}"
     }
 
     TRANSLATIONS["en"].update(new_en)

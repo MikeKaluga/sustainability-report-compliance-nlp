@@ -248,8 +248,15 @@ Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
 Justification: ...
 """
 
+    # --- Specialize the prompt with detected standard when available ---
+    detected_std = getattr(parent, "detected_standard", None)
+    if detected_std and detected_std != "UNKNOWN":
+        expertise_line = f"You are an expert in sustainability reporting according to {detected_std}."
+    else:
+        expertise_line = "You are an expert in sustainability reporting according to ESRS and GRI."
+
     prompt = f"""
-You are an expert in sustainability reporting according to ESRS and GRI.
+{expertise_line}
 Refer to the following requirement:
 
 "{requirement_text}"

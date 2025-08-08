@@ -1,4 +1,4 @@
-# Sustainability Report Compliance with NLP (Version 1.1)
+# Sustainability Report Compliance with NLP (Version 1.2)
 
 This project analyzes the compliance of corporate sustainability reports with established reporting standards (such as GRI and ESRS) using modern Natural Language Processing (NLP) methods.
 

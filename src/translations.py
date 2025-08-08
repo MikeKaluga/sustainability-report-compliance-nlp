@@ -60,6 +60,7 @@ TRANSLATIONS = {
         "export_error_text": "Error exporting file: {e}",
         "sub_points": "Sub-points",
         "run_matching_first": "Please run matching first to see results.",
+        "standard_detected": "Detected standard: {standard}",
 
         # --- FAQ Menu ---
         "help": "Help",
@@ -85,7 +86,7 @@ TRANSLATIONS = {
         # --- About Window ---
         "about_title": "About the app for investigating the compliance of sustainability reports with reporting standards using NLP methods",
         "about_text": "This application was developed as part of a bachelor's thesis to analyze the compliance of sustainability reports with established standards (such as GRI and ESRS) using NLP methods.",
-        "about_version": "Version: 1.1",
+        "about_version": "Version: 1.2",
         "about_author": "Author: Mihail Savvateev"
     },
     "de": {
@@ -133,6 +134,7 @@ TRANSLATIONS = {
         "export_error_text": "Fehler beim Exportieren der Datei: {e}",
         "sub_points": "Unterpunkte",
         "run_matching_first": "Bitte führen Sie zuerst das Matching aus, um Ergebnisse zu sehen.",
+        "standard_detected": "Erkannter Standard: {standard}",
 
         # --- FAQ Menu ---
         "help": "Hilfe",
@@ -158,7 +160,7 @@ TRANSLATIONS = {
         # --- About Window ---
         "about_title": "Über die App zur Untersuchung der Übereinstimmung von Nachhaltigkeitsberichten mit Berichtsstandards unter Verwendung von NLP-Methoden",
         "about_text": "Diese Anwendung wurde im Rahmen einer Bachelorarbeit entwickelt, um die Einhaltung von Nachhaltigkeitsberichten mit etablierten Standards (wie GRI und ESRS) mithilfe von NLP-Methoden zu analysieren.",
-        "about_version": "Version: 1.1",
+        "about_version": "Version: 1.2",
         "about_author": "Autor: Mihail Savvateev"
     },
 }

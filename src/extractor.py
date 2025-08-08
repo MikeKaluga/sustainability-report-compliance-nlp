@@ -17,6 +17,50 @@ Usage:
 import re
 import pdfplumber
 
+# --- Standard detection helpers ---
+def detect_standard(text, threshold: float = 0.55) -> str:
+    """
+    Detects which standard (ESRS/GRI) a given text most likely belongs to.
+    Returns 'ESRS', 'GRI', or 'UNKNOWN'.
+    """
+    esrs_patterns = {
+        r"\bESRS\b",
+        r"\bEFRAG\b",
+        r"\bCSRD\b",
+        r"\bEuropean Sustainability Reporting Standards\b",
+        r"\bDisclosure\s+Requirement\b",
+        r"\bESRS\s+[EGST]\d+",
+    }
+    gri_patterns = {
+        r"\bGRI\b",
+        r"\bGlobal Reporting Initiative\b",
+        r"\bGRI\s*(Standards?)?\b",
+        r"\bGRI\s*[1-9]\d{0,2}[-–—−]\d{1,2}\b",
+        r"\bUniversal\s+Standards\b|\bTopic[- ]specific\s+Standards\b|\bSector\s+Standards\b",
+    }
+
+    def score(txt: str, patterns: set[str]) -> float:
+        hits = sum(1 for p in patterns if re.search(p, txt, flags=re.IGNORECASE))
+        return 0.0 if not patterns else hits / len(patterns)
+
+    esrs_score = score(text, esrs_patterns)
+    gri_score = score(text, gri_patterns)
+
+    if esrs_score < threshold and gri_score < threshold:
+        return "UNKNOWN"
+    return "ESRS" if esrs_score >= gri_score else "GRI"
+
+
+def detect_standard_from_pdf(pdf_path: str) -> str:
+    """
+    Reads the PDF and returns 'ESRS', 'GRI', or 'UNKNOWN'.
+    """
+    try:
+        full_text = extract_text_from_pdf(pdf_path)
+        return detect_standard(full_text)
+    except Exception:
+        return "UNKNOWN"
+
 
 # ------------------------------------------------------------------
 # Helper function to filter footers from page text
@@ -160,8 +204,11 @@ def extract_requirements(text):
         end_idx = req_matches[i + 1][1] if i + 1 < len(req_matches) else len(text)
         segment = text[start_idx:end_idx]
         
-        # Process the segment based on its standard type
-        full_text, sub_points = _process_segment(segment, standard_type)
+        # --- Route to separate handlers for ESRS/GRI ---
+        if standard_type == 'esrs':
+            full_text, sub_points = _process_esrs_segment(segment)
+        else:
+            full_text, sub_points = _process_gri_segment(segment)
         
         # Append the segment to the corresponding requirement code, only if content was found
         if full_text:
@@ -178,8 +225,25 @@ def extract_requirements(text):
     return requirements
 
 
-def _process_segment(segment, standard_type):
+def _process_esrs_segment(segment: str):
     """
+    ESRS-specific segment processing wrapper.
+    Internally calls the core processor with 'esrs'.
+    """
+    return _process_segment_core(segment, 'esrs')
+
+
+def _process_gri_segment(segment: str):
+    """
+    GRI-specific segment processing wrapper.
+    Internally calls the core processor with 'gri'.
+    """
+    return _process_segment_core(segment, 'gri')
+
+
+def _process_segment_core(segment, standard_type):
+    """
+    Core segment processor.
     Processes a text segment based on the standard type (ESRS or GRI).
     
     Args:

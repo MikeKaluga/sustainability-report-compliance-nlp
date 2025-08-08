@@ -19,15 +19,20 @@ def update_ui_texts(app):
     app.export_llm_btn.config(text=translate("export_llm_analysis"))
     app.analyze_llm_btn.config(text=translate("analyze_with_llm"))
     
-    # Update status label based on current state
+    # Build status with optional detected standard suffix ---
+    detected_suffix = ""
+    if hasattr(app, "detected_standard") and app.detected_standard:
+        detected_suffix = f" {translate('standard_detected', standard=app.detected_standard)}"
+
     if not app.standard_pdf_path:
-        app.status_label.config(text=translate("initial_status"))
+        status = translate("initial_status")
     elif not app.report_pdf_path:
-        app.status_label.config(text=translate("standard_ready"))
+        status = translate("standard_ready") + detected_suffix
     elif not app.matches:
-        app.status_label.config(text=translate("report_ready"))
+        status = translate("report_ready") + detected_suffix
     else:
-        app.status_label.config(text=translate("matching_completed_label"))
+        status = translate("matching_completed_label") + detected_suffix
+    app.status_label.config(text=status)
 
     # Update labels of the sub-menus inside the "Export" menu
     app.export_menu.entryconfig(0, label=translate("export_reqs"))

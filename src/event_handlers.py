@@ -18,8 +18,6 @@ def handle_requirement_selection(app, event, sub_point_text=None):
     app.text_display.config(state="normal")
     app.text_display.delete("1.0", "end")
 
-    if sub_point_text:
-        print(f"Übergebener Sub-Point-Text: '{sub_point_text}'")
 
     # Default to disabled, enable only if matches are found
     app.analyze_llm_btn.config(state="disabled")
@@ -30,11 +28,6 @@ def handle_requirement_selection(app, event, sub_point_text=None):
         # Determine the text to display and the key to use for finding matches
         text_to_display = sub_point_text if sub_point_text else req_data['full_text']
         key_for_matches = text_to_display.strip()
-
-        if app.matches and key_for_matches in app.matches:
-            print(f"Schlüssel '{key_for_matches}' in app.matches gefunden.")
-        else:
-            print(f"Schlüssel '{key_for_matches}' NICHT in app.matches gefunden.")
 
         # Display the requirement code/designation first
         app.text_display.insert("end", translate("disclosure_requirement") + ":\n", "h1")

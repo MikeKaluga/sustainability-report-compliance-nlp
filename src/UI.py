@@ -68,6 +68,8 @@ class ComplianceApp(tk.Tk):
         self.standard_pdf_path = None  # Path to the selected standard PDF
         self.report_pdf_path = None  # Path to the selected report PDF
         self.requirements_data = {}  # Dictionary to store extracted requirements {code: text}
+        # --- Detected standard (ESRS/GRI/UNKNOWN) ---
+        self.detected_standard = None
         self.report_paras = []  # List to store extracted paragraphs from the report
         self.standard_emb = None  # Embeddings for the requirements
         self.report_emb = None  # Embeddings for the report paragraphs
@@ -198,18 +200,13 @@ class ComplianceApp(tk.Tk):
 
     def _on_sub_point_select(self, event):
         """Handles selection of a sub-point in the sub-point listbox."""
-        #print("req_listbox.curselection():", self.req_listbox.curselection()) # Debugging output
-        #print("current_req_code:", self.current_req_code) # Debugging output
-        # print("sub_point_listbox.curselection():", self.sub_point_listbox.curselection()) # Debugging output
+        # If either main requirement or sub-point selection is missing, do nothing.
         if not self.current_req_code or not self.sub_point_listbox.curselection():
-            print("Abbruch: Mindestens eine Auswahl fehlt.") # Debugging output
             return
 
         # Get selected sub-point text
         sub_point_index = self.sub_point_listbox.curselection()[0]
         sub_point_text = self.sub_point_listbox.get(sub_point_index)
-        #print("Ausgewählter Sub-Point Index:", sub_point_index) # Debugging output
-        #print("Ausgewählter Sub-Point Text:", sub_point_text) # Debugging output
 
         # Display the details for this sub-point, ensuring the key is stripped
         handle_requirement_selection(self, event, sub_point_text=sub_point_text.strip())
@@ -254,32 +251,8 @@ class ComplianceApp(tk.Tk):
         self.status_label.config(text=translate("performing_matching"))
         self.update_idletasks()
 
-        # Debugging: Print the number of embeddings
-        if self.standard_emb is not None:
-            print(f"Number of standard embeddings: {len(self.standard_emb)}")
-        else:
-            print("Standard embeddings are None.")
-
-        if self.report_emb is not None:
-            print(f"Number of report embeddings: {len(self.report_emb)}")
-        else:
-            print("Report embeddings are None.")
-
         # This returns a flat list of matches for all texts that were embedded (sub-points or full texts)
         all_matches = match_requirements_to_report(self.standard_emb, self.report_emb, top_k=5)
-        print(f"Standard embedding shape: {self.standard_emb.shape if self.standard_emb is not None else 'None'}")
-        print(f"Report embedding shape: {self.report_emb.shape if self.report_emb is not None else 'None'}")
-        print(f"Number of matches: {len(all_matches)}")
-
-        # Debugging: Print the number of matches
-        print(f"Number of matches: {len(all_matches)}")
-
-        # Debugging: Print all matches
-        #print("All matches:")
-        #for i, match_list in enumerate(all_matches):
-            #print(f"Requirement {i + 1}:")
-            #for match in match_list:
-                #print(f"  Paragraph Index: {match[0]}, Similarity Score: {match[1]:.4f}")
 
         # Re-structure the flat list of matches into a dictionary mapping text -> matches
         self.matches = {}
@@ -298,12 +271,6 @@ class ComplianceApp(tk.Tk):
         for i, text in enumerate(standard_texts_for_embedding):
             if i < len(all_matches):
                 self.matches[text.strip()] = all_matches[i]
-
-        # Debugging: Print the keys that were stored in the matches dictionary
-        #print("\n--- Keys stored in self.matches ---")
-        #for key in self.matches.keys():
-            #print(f"'{key}'")
-        #print("-----------------------------------\n")
 
         self.status_label.config(text=translate("matching_completed_label"))
         self.export_menu.entryconfig(2, state=tk.NORMAL)  # Use index 2 for "Export Matching Results"

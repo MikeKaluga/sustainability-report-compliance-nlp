@@ -9,6 +9,7 @@ import os
 from translations import translate
 from extractor import extract_requirements_from_standard_pdf
 from parser import extract_paragraphs_from_pdf
+from extractor import detect_standard_from_pdf
 
 def select_standard_file(app):
     """
@@ -27,6 +28,8 @@ def select_standard_file(app):
     try:
         app.requirements_data = extract_requirements_from_standard_pdf(app.standard_pdf_path)
         
+        app.detected_standard = detect_standard_from_pdf(app.standard_pdf_path)
+
         app.req_listbox.delete(0, tk.END)
         if app.requirements_data:
             for code in app.requirements_data.keys():
@@ -47,7 +50,9 @@ def select_standard_file(app):
         
         app.standard_emb = app.embedder.encode(standard_texts_for_embedding)
         
-        app.status_label.config(text=translate("standard_ready"))
+        app.status_label.config(
+            text=f"{translate('standard_ready')} {translate('standard_detected', standard=app.detected_standard or 'UNKNOWN')}"
+        )
         app.select_report_btn.config(state=tk.NORMAL)
         app.export_menu.entryconfig(0, state=tk.NORMAL)
     except Exception as e:
