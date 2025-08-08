@@ -45,8 +45,10 @@ TRANSLATIONS = {
         "paras_found": "paragraphs found in the report. Generating embeddings...",
         "error_try_again": "Error. Please try again.",
         "completed": "Completed",
-        "req_text_label": "REQUIREMENT TEXT:",
-        "matches_found_label": "MATCHES FOUND IN REPORT:",
+        "disclosure_requirement": "Disclosure Requirement",
+        "selected_subpoint": "Selected Sub-point:",
+        "datapoint": "Datapoint:",
+        "matches_found_label": "Matches found in report:",
         "no_matches_found": "No matching paragraphs found.",
         "export_as": "Export as",
         "no_reqs_to_export": "There are no requirements to export.",
@@ -83,7 +85,7 @@ TRANSLATIONS = {
         # --- About Window ---
         "about_title": "About the app for investigating the compliance of sustainability reports with reporting standards using NLP methods",
         "about_text": "This application was developed as part of a bachelor's thesis to analyze the compliance of sustainability reports with established standards (such as GRI and ESRS) using NLP methods.",
-        "about_version": "Version: 1.0",
+        "about_version": "Version: 1.1",
         "about_author": "Author: Mihail Savvateev"
     },
     "de": {
@@ -116,8 +118,10 @@ TRANSLATIONS = {
         "paras_found": "Absätze im Bericht gefunden. Erstelle Embeddings...",
         "error_try_again": "Fehler. Bitte erneut versuchen.",
         "completed": "Abgeschlossen",
-        "req_text_label": "ANFORDERUNGSTEXT:",
-        "matches_found_label": "GEFUNDENE ÜBEREINSTIMMUNGEN IM BERICHT:",
+        "disclosure_requirement": "Angabepflicht",
+        "selected_subpoint": "Ausgewählter Unterpunkt:",
+        "datapoint": "Angabe:",
+        "matches_found_label": "Gefundene Übereinstimmungen im Bericht:",
         "no_matches_found": "Keine Übereinstimmungen gefunden.",
         "export_as": "Exportieren als",
         "no_reqs_to_export": "Es gibt keine Anforderungen zum Exportieren.",
@@ -154,7 +158,7 @@ TRANSLATIONS = {
         # --- About Window ---
         "about_title": "Über die App zur Untersuchung der Übereinstimmung von Nachhaltigkeitsberichten mit Berichtsstandards unter Verwendung von NLP-Methoden",
         "about_text": "Diese Anwendung wurde im Rahmen einer Bachelorarbeit entwickelt, um die Einhaltung von Nachhaltigkeitsberichten mit etablierten Standards (wie GRI und ESRS) mithilfe von NLP-Methoden zu analysieren.",
-        "about_version": "Version: 1.0",
+        "about_version": "Version: 1.1",
         "about_author": "Autor: Mihail Savvateev"
     },
 }

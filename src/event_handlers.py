@@ -36,8 +36,23 @@ def handle_requirement_selection(app, event, sub_point_text=None):
         else:
             print(f"Schlüssel '{key_for_matches}' NICHT in app.matches gefunden.")
 
+        # Display the requirement code/designation first
+        app.text_display.insert("end", translate("disclosure_requirement") + ":\n", "h1")
+        
+        # Check if req_code contains "Disclosure Requirement" and replace it
+        display_req_code = req_code
+        if "Disclosure Requirement" in req_code:
+            display_req_code = req_code.replace("Disclosure Requirement", translate("disclosure_requirement"))
+        
+        app.text_display.insert("end", f"{display_req_code}\n")
+        
+        # If a sub-point is selected, show separator
+        if sub_point_text:
+            app.text_display.insert("end", "_" * 50 + "\n")  # Underline separator
+        else:
+            app.text_display.insert("end", "\n")
 
-        app.text_display.insert("end", translate("req_text_label") + "\n", "h1")
+        app.text_display.insert("end", translate("datapoint") + "\n", "h1")
         app.text_display.insert("end", f"{text_to_display}\n\n")
 
         # Display matches if they exist

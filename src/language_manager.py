@@ -6,6 +6,7 @@ def switch_language_and_update_ui(app):
     """
     switch_language()
     update_ui_texts(app)
+    refresh_current_display(app)
 
 def update_ui_texts(app):
     """
@@ -40,3 +41,21 @@ def update_ui_texts(app):
     app.list_container.config(text=translate("requirements_from_standard"))
     app.sub_point_container.config(text=translate("sub_points"))
     app.text_container.config(text=translate("requirement_text_and_matches"))
+
+def refresh_current_display(app):
+    """
+    Refreshes the current display after language change.
+    This ensures that any displayed text (like "run_matching_first") is updated.
+    """
+    if hasattr(app, 'current_req_code') and app.current_req_code:
+        # Check if a sub-point is currently selected
+        if hasattr(app, 'sub_point_listbox') and app.sub_point_listbox.curselection():
+            sub_point_index = app.sub_point_listbox.curselection()[0]
+            sub_point_text = app.sub_point_listbox.get(sub_point_index)
+            # Refresh with the selected sub-point
+            from event_handlers import handle_requirement_selection
+            handle_requirement_selection(app, None, sub_point_text=sub_point_text.strip())
+        else:
+            # Refresh with the main requirement
+            from event_handlers import handle_requirement_selection
+            handle_requirement_selection(app, None)
