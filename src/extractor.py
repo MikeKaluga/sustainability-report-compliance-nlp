@@ -144,38 +144,69 @@ def find_requirements(text):
                        - The requirement code (str)
                        - The start index of the requirement in the text (int)
                        - The standard type ('esrs' or 'gri')
+                       - The full designation/title (str)
     """
     # Define patterns to match different types of requirements
     patterns = [
         # ESRS Patterns - require a title starting with '–' to be considered a requirement
-        r"Disclosure\s+Requirement\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−]",  # e.g., Disclosure Requirement G1-2 –
-        r"Disclosure\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−]",             # e.g., Disclosure G1-2 –
-        r"([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−]",                          # e.g., G1-2 –
+        r"(Disclosure\s+Requirement\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",  # e.g., Disclosure Requirement G1-2 – title
+        r"(Disclosure\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",             # e.g., Disclosure G1-2 – title
+        r"(([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",                          # e.g., G1-2 – title
         r"(Kriterium\s+\d{1,2})",                                 # German: Kriterium 10
         r"(Criterion\s+\d{1,2})",                                 # English: Criterion 7
         r"(\b\d{1,2}\.\s+(?:Strategie|Wesentlichkeit|Ziele|Tiefe der Wertschöpfungskette|Verantwortung|Regeln und Prozesse|Kontrolle|Anreizsysteme|Beteiligung von Anspruchsgruppen|Innovations- und Produktmanagement|Inanspruchnahme natürlicher Ressourcen|Ressourcenmanagement|Klimarelevante Emissionen|Arbeitnehmerrechte|Chancengleichheit|Qualifizierung|Menschenrechte|Gemeinwesen|Politische Einflussnahme|Gesetzes- und richtlinienkonformes Verhalten))",  # German numbered sections
         
-        # GRI Patterns
-        r"(GRI(?:\s+SRS)?[\- ]?\d{1,3}[\-–—−]\d{1,2})",           # e.g., GRI 2-1, GRI 305–3
-        r"Disclosure\s+(\d{1,3}[\-–—−]\d{1,2})",                  # e.g., Disclosure 2-1
-        r"\b(\d{1,3}[\-–—−]\d{1,2})\b",                           # e.g., 2-1, 305-5 standalone
+        # GRI Patterns - capture full line including title
+        r"((GRI(?:\s+SRS)?[\- ]?\d{1,3}[\-–—−]\d{1,2})[^\n]*)",           # e.g., GRI 2-1 title
+        r"(Disclosure\s+(\d{1,3}[\-–—−]\d{1,2})[^\n]*)",                  # e.g., Disclosure 2-1 title
+        r"\b((\d{1,3}[\-–—−]\d{1,2})[^\n]*)",                           # e.g., 2-1 title standalone
     ]
     combined_pattern = "|".join(patterns)
     regex = re.compile(combined_pattern)
 
     matches = []
     for m in regex.finditer(text):
-        # Determine the standard type and code
-        # Groups 1-6 are ESRS, 7-9 are GRI
-        if m.group(1) or m.group(2) or m.group(3) or m.group(4) or m.group(5) or m.group(6):
+        # Check for table of contents pattern: text followed by dots and a page number
+        if re.search(r'\.{2,}\s*\d+\s*$', m.group(0)):
+            continue  # Skip this match as it's likely a TOC entry
+
+        # Determine the standard type, code, and full designation
+        full_designation = ""
+        code = ""
+        
+        # Groups 1-6 are ESRS patterns
+        if m.group(1):  # ESRS with "Disclosure Requirement"
             standard_type = 'esrs'
-            code = m.group(1) or m.group(2) or m.group(3) or m.group(4) or m.group(5) or m.group(6)
-        else:
-            standard_type = 'gri'
+            full_designation = m.group(1).strip()
+            code = m.group(2).strip() if m.group(2) else ""
+        elif m.group(3):  # ESRS with "Disclosure"
+            standard_type = 'esrs'
+            full_designation = m.group(3).strip()
+            code = m.group(4).strip() if m.group(4) else ""
+        elif m.group(5):  # ESRS standalone code
+            standard_type = 'esrs'
+            full_designation = m.group(5).strip()
+            code = m.group(6).strip() if m.group(6) else ""
+        elif m.group(7) or m.group(8) or m.group(9):  # German patterns
+            standard_type = 'esrs'
             code = m.group(7) or m.group(8) or m.group(9)
+            full_designation = code
+        # Groups 10-12 are GRI patterns
+        elif m.group(10):  # GRI with full designation
+            standard_type = 'gri'
+            full_designation = m.group(10).strip()
+            code = m.group(11).strip() if m.group(11) else ""
+        elif m.group(12):  # GRI Disclosure
+            standard_type = 'gri'
+            full_designation = m.group(12).strip()
+            code = m.group(13).strip() if m.group(13) else ""
+        elif m.group(14):  # GRI standalone
+            standard_type = 'gri'
+            full_designation = m.group(14).strip()
+            code = m.group(15).strip() if m.group(15) else ""
         
         if code:
-            matches.append((code.strip(), m.start(), standard_type))
+            matches.append((code.strip(), m.start(), standard_type, full_designation))
 
     # Sort matches by their position in the text
     matches.sort(key=lambda x: x[1])
@@ -194,12 +225,78 @@ def extract_requirements(text):
 
     Returns:
         dict: A dictionary where keys are requirement codes and values are dictionaries
-              containing the full text ('full_text') and a list of sub-points ('sub_points').
+              containing the full text ('full_text'), a list of sub-points ('sub_points'),
+              and the full designation ('full_designation').
     """
     req_matches = find_requirements(text)
     requirements = {}
 
-    for i, (code, start_idx, standard_type) in enumerate(req_matches):
+    def _clean_full_designation(designation):
+        """
+        Cleans the full designation by removing trailing dots and page numbers.
+        
+        Args:
+            designation (str): The raw full designation text.
+            
+        Returns:
+            str: The cleaned designation text.
+        """
+        # Remove trailing dots and page numbers (e.g., ".................................... 7")
+        cleaned = re.sub(r'\.{2,}\s*\d*\s*$', '', designation)
+        return cleaned.strip()
+
+    def _clean_full_text(text, code):
+        """
+        Cleans the full text by removing duplicate titles and trailing dots with page numbers.
+        
+        Args:
+            text (str): The raw full text.
+            code (str): The requirement code to identify duplicate titles.
+            
+        Returns:
+            str: The cleaned full text.
+        """
+        # Remove trailing dots and page numbers first
+        cleaned = re.sub(r'\.{2,}\s*\d*\s*$', '', text)
+        
+        # Remove specific unwanted headers
+        unwanted_headers = [
+            "Metrics and targets",
+            "Impact, risk and opportunity management"
+        ]
+        for header in unwanted_headers:
+            # Using re.IGNORECASE to match case-insensitively
+            cleaned = re.sub(re.escape(header), '', cleaned, flags=re.IGNORECASE)
+
+        # Trim text at "APPLICATION REQUIREMENTS"
+        app_req_marker = "APPLICATION REQUIREMENTS"
+        marker_idx = cleaned.upper().find(app_req_marker)
+        if marker_idx != -1:
+            cleaned = cleaned[:marker_idx]
+
+        # Pattern to find the start of the actual content, which is often a numbered or lettered list.
+        # This looks for patterns like "1.", "15.", "(a)", "a.", etc.
+        content_start_pattern = re.compile(r'(?:\d{1,2}\.|\([a-z]\)|[a-z]\.)\s+')
+        
+        match = content_start_pattern.search(cleaned)
+        
+        if match:
+            # If a starting pattern is found, trim the text to start from there.
+            cleaned = cleaned[match.start():]
+        else:
+            # Fallback for cases where the title is repeated without a clear list marker.
+            # This removes the "Disclosure Requirement [CODE] – [TITLE]" part.
+            disclosure_pattern = rf"Disclosure\s+Requirement\s+{re.escape(code)}\s*[\-–—−][^\n]*"
+            # Find all matches and keep only the first one
+            matches = list(re.finditer(disclosure_pattern, cleaned, flags=re.IGNORECASE))
+            if len(matches) > 1:
+                # Remove all occurrences except the first one
+                for m in reversed(matches[1:]):  # Reverse to maintain indices
+                    cleaned = cleaned[:m.start()] + cleaned[m.end():]
+
+        return cleaned.strip()
+
+    for i, (code, start_idx, standard_type, full_designation) in enumerate(req_matches):
         # Determine the end index of the current requirement
         end_idx = req_matches[i + 1][1] if i + 1 < len(req_matches) else len(text)
         segment = text[start_idx:end_idx]
@@ -213,14 +310,37 @@ def extract_requirements(text):
         # Append the segment to the corresponding requirement code, only if content was found
         if full_text:
             if code not in requirements:
-                requirements[code] = {'full_text': "", 'sub_points': []}
+                requirements[code] = {'full_text': "", 'sub_points': [], 'full_designation': _clean_full_designation(full_designation)}
             
             requirements[code]['full_text'] += " " + full_text
             requirements[code]['sub_points'].extend(sub_points)
 
     # Clean up the final dictionary
     for code in requirements:
-        requirements[code]['full_text'] = requirements[code]['full_text'].strip()
+        requirements[code]['full_text'] = _clean_full_text(requirements[code]['full_text'].strip(), code)
+
+        # Clean unwanted headers from sub-points as well
+        unwanted_headers = [
+            "Metrics and targets",
+            "Impact, risk and opportunity management"
+        ]
+        app_req_marker = "APPLICATION REQUIREMENTS"
+        cleaned_sub_points = []
+        for sp in requirements[code]['sub_points']:
+            cleaned_sp = sp
+            for header in unwanted_headers:
+                cleaned_sp = re.sub(re.escape(header), '', cleaned_sp, flags=re.IGNORECASE)
+            
+            # Trim text at "APPLICATION REQUIREMENTS" for sub-points
+            marker_idx = cleaned_sp.upper().find(app_req_marker)
+            if marker_idx != -1:
+                cleaned_sp = cleaned_sp[:marker_idx]
+
+            # Add the cleaned sub-point only if it's not empty
+            if cleaned_sp.strip():
+                cleaned_sub_points.append(cleaned_sp.strip())
+        
+        requirements[code]['sub_points'] = cleaned_sub_points
 
     return requirements
 
@@ -238,6 +358,18 @@ def _process_gri_segment(segment: str):
     GRI-specific segment processing wrapper.
     Internally calls the core processor with 'gri'.
     """
+    # Robustly detect "guidance" (case-insensitive, tolerant to punctuation/whitespace/newlines)
+    m = re.search(r'\bguidance\b', segment, flags=re.IGNORECASE)
+    if m:
+        before_guidance = segment[:m.start()]
+        # Keep only up to and including the last period before GUIDANCE
+        last_period_index = before_guidance.rfind('.')
+        if last_period_index != -1:
+            segment = before_guidance[:last_period_index + 1]
+        else:
+            # If no period before GUIDANCE, keep only the text before GUIDANCE
+            segment = before_guidance.strip()
+
     return _process_segment_core(segment, 'gri')
 
 

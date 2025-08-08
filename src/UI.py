@@ -194,9 +194,9 @@ class ComplianceApp(tk.Tk):
                 # Populate sub-points list
                 for sub_point in req_data['sub_points']:
                     self.sub_point_listbox.insert(tk.END, sub_point)
-            else:
-                # No sub-points, so display full text and matches directly
-                handle_requirement_selection(self, event)
+            
+            # Display the requirement
+            handle_requirement_selection(self, event)
 
     def _on_sub_point_select(self, event):
         """Handles selection of a sub-point in the sub-point listbox."""
