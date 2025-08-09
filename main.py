@@ -1,5 +1,5 @@
 """
-Version: v0.6
+Version: v1.2
 
 This script serves as the unified entry point for analyzing the compliance of sustainability reports
 with established standards. It provides a graphical user interface to select between analyzing a single report or multiple reports.
@@ -32,7 +32,7 @@ def show_loading_window(title):
     """Show a loading window with animation while the UI is starting."""
     loading_window = tk.Toplevel()
     loading_window.title("Loading...")
-    loading_window.geometry("300x150")
+    loading_window.geometry("300x180")
     loading_window.resizable(False, False)
     
     # Center the loading window
@@ -51,6 +51,11 @@ def show_loading_window(title):
     label = ttk.Label(frame, text=f"Starting {title}...", font=("Arial", 11))
     label.pack()
     
+    # Patience message
+    patience_label = ttk.Label(frame, text="The application may take a moment to load.\nPlease be patient.", 
+                              font=("Arial", 9), foreground="gray", justify=tk.CENTER)
+    patience_label.pack(pady=(10, 0))
+    
     return loading_window
 
 
@@ -68,9 +73,14 @@ def main():
         message=".*Torch was not compiled with flash attention.*",
         category=UserWarning,
     )
+    warnings.filterwarnings(
+        "ignore",
+        message="`clean_up_tokenization_spaces` was not set. It will be set to `True` by default. This behavior will be depracted in transformers v4.45, and will be then set to `False` by default. For more details check this issue: https://github.com/huggingface/transformers/issues/31884",
+        category=FutureWarning,
+    )
 
     root = tk.Tk()
-    root.title("Sustainability Report Compliance Analysis (v0.6)")
+    root.title("Sustainability Report Compliance Analysis (v1.2)")
     root.geometry("400x150")
 
     def run_single_report_analysis():
@@ -81,7 +91,7 @@ def main():
         def start_ui():
             try:
                 # Give the loading window time to appear
-                time.sleep(0.5)
+                time.sleep(1.0)
                 # Run the UI module as a separate process
                 ui_path = os.path.join(project_root, 'src', 'UI.py')
                 process = subprocess.Popen([sys.executable, ui_path])
@@ -92,10 +102,10 @@ def main():
                 while time.time() - start_time < 10:  # Wait up to 10 seconds
                     if process.poll() is not None:  # Process ended unexpectedly
                         break
-                    time.sleep(0.5)
+                    time.sleep(1.0)
                 
                 # Give additional time for UI to fully load
-                time.sleep(0.6)
+                time.sleep(1.0)
                 loading_win.destroy()
                 root.destroy()
                 # Wait for the process to complete
@@ -115,7 +125,7 @@ def main():
         def start_multi_ui():
             try:
                 # Give the loading window time to appear
-                time.sleep(0.5)
+                time.sleep(1.0)
                 # Run the MultiReportUI module as a separate process
                 multi_ui_path = os.path.join(project_root, 'src', 'MultiReportUI.py')
                 process = subprocess.Popen([sys.executable, multi_ui_path])
@@ -126,10 +136,10 @@ def main():
                 while time.time() - start_time < 10:  # Wait up to 10 seconds
                     if process.poll() is not None:  # Process ended unexpectedly
                         break
-                    time.sleep(0.5)
+                    time.sleep(1.0)
                 
                 # Give additional time for UI to fully load
-                time.sleep(0.6)
+                time.sleep(1.0)
                 loading_win.destroy()
                 root.destroy()
                 # Wait for the process to complete

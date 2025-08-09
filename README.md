@@ -61,7 +61,7 @@ The tool extracts requirements from standards and matches relevant passages from
 2. Place the standard PDF and report PDFs in the `data/` folder.  
    You can download the required PDFs from the following links:
    - **GRI Standards**: [GRI Standards (English)](https://globalreporting.org/how-to-use-the-gri-standards/gri-standards-english-language/)
-   - **ESRS Standards**: [Amended ESRS 0](https://www.efrag.org/en/amended-esrs-0)
+   - **ESRS Standards**: [Amended ESRS](https://www.efrag.org/en/amended-esrs-0)
    - **Sustainability Reports**: [Responsibility Reports by Industry](https://www.responsibilityreports.com/Browse/Industry)
 
 3. Run the application:

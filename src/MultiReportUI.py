@@ -15,6 +15,10 @@ Usage:
 - Click "Run Analysis" to perform the compliance analysis and view the results.
 """
 
+import warnings
+# Suppress a specific FutureWarning from the transformers library
+warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
+
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import os
@@ -39,6 +43,11 @@ class MultiReportApp(tk.Tk):
         super().__init__()
         self.title(translate("multi_report_app_title"))
         self.geometry("900x700")
+
+        messagebox.showwarning(
+            title=translate("dev_warning_title"),
+            message=translate("dev_warning_message")
+        )
 
         # --- Data storage ---
         self.standard_pdf_path = None
@@ -424,7 +433,9 @@ if __name__ == '__main__':
         "no_results_to_export": "No analysis results to export.",
         "llm_analysis_progress": "Performing LLM analysis on report {current}/{total}: {name}...",
         "llm_analysis_complete": "LLM analysis complete. Results updated.",
-        "standard_detected": "Detected standard: {standard}"
+        "standard_detected": "Detected standard: {standard}",
+        "dev_warning_title": "Development Warning",
+        "dev_warning_message": "The multi-report analysis feature is currently under development and may not function as expected. Please use with caution."
     }
     
     new_de = {
@@ -449,7 +460,9 @@ if __name__ == '__main__':
         "no_results_to_export": "Keine Analyseergebnisse zum Exportieren.",
         "llm_analysis_progress": "Führe LLM-Analyse für Bericht {current}/{total} durch: {name}...",
         "llm_analysis_complete": "LLM-Analyse abgeschlossen. Ergebnisse aktualisiert.",
-        "standard_detected": "Erkannter Standard: {standard}"
+        "standard_detected": "Erkannter Standard: {standard}",
+        "dev_warning_title": "Entwicklungswarnung",
+        "dev_warning_message": "Die Multi-Bericht-Analysefunktion befindet sich derzeit in der Entwicklung und funktioniert möglicherweise nicht wie erwartet. Bitte mit Vorsicht verwenden."
     }
 
     TRANSLATIONS["en"].update(new_en)
