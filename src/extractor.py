@@ -460,7 +460,28 @@ def _process_segment_core(segment, standard_type):
         # The first part is the main description, which we discard.
         # However, if the first line was already a subpoint, we keep it.
         if result_parts and not gri_subpoint_pattern.match(result_parts[0]):
-             result_parts.pop(0)
+            result_parts.pop(0)
+
+        # Neue Anforderung: Eine GRI Anforderung endet nach dem ersten Punkt (Satzende).
+        # Punkte in Aufzählungskennzeichnungen (a. b. c. i. ii. iii.) werden ignoriert.
+        trimmed_sub_points = []
+        new_result_parts = []
+        for sp in sub_points:
+            enum_match = re.match(r'^((?:[a-z]|(?:\(?[ivx]+\)?))\.)\s+(.*)', sp, flags=re.IGNORECASE)
+            if enum_match:
+                enum_prefix = enum_match.group(1)  # e.g. 'a.' oder 'ii.'
+                rest = enum_match.group(2)
+            else:
+                enum_prefix = ""
+                rest = sp
+            period_idx = rest.find('.')
+            if period_idx != -1:
+                rest = rest[:period_idx + 1]
+            truncated = (enum_prefix + ' ' + rest).strip() if enum_prefix else rest.strip()
+            trimmed_sub_points.append(truncated)
+            new_result_parts.append(truncated)
+        sub_points = trimmed_sub_points
+        result_parts = new_result_parts
 
     return " ".join(result_parts).strip(), sub_points
 
