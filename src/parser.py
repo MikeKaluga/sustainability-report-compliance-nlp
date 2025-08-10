@@ -27,7 +27,6 @@ def clean_text(text):
     Returns:
         str: The cleaned text with normalized line breaks and spaces.
     """
-    text = text.replace("-", "")  # Remove special hyphens
     text = text.replace("\r\n", "\n").replace("\r", "\n")  # Normalize line breaks
     text = re.sub(r"\n{2,}", "\n\n", text)  # Normalize multiple line breaks
     text = re.sub(r" +", " ", text)  # Remove extra spaces
@@ -116,7 +115,6 @@ def extract_paragraphs_from_pdf(
     # Smooth line breaks
     text = re.sub(r"-\n", "", raw_text)
     text = text.replace("\r\n", "\n")
-    text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
 
     # Primary paragraph segmentation: split by double line breaks
     raw_paragraphs = re.split(r"\n{2,}", text)
