@@ -166,9 +166,21 @@ def find_requirements(text):
 
     matches = []
     for m in regex.finditer(text):
-        # Check for table of contents pattern: text followed by dots and a page number
-        if re.search(r'\.{2,}\s*\d+\s*$', m.group(0)):
-            continue  # Skip this match as it's likely a TOC entry
+        # Check for table of contents pattern. This can be single or multi-line.
+        # A TOC entry is a line ending with '....' and a page number.
+        # For multi-line entries, the '....' might be on a subsequent line.
+        
+        # We create a small window of text around the match to check for TOC patterns.
+        # The window starts at the beginning of the line of the match.
+        line_start = text.rfind('\n', 0, m.start()) + 1
+        # And ends a bit after the match to catch wrapped lines.
+        # Let's look ahead 250 chars, which should cover 2-3 lines.
+        context_end = min(len(text), m.end() + 250)
+        context = text[line_start:context_end]
+
+        # Now check if any line in this context ends with the TOC pattern.
+        if any(re.search(r'\.{2,}\s*\d+\s*$', line) for line in context.split('\n')):
+            continue # Skip this match as it's part of a TOC entry.
 
         # Determine the standard type, code, and full designation
         full_designation = ""
