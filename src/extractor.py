@@ -149,10 +149,9 @@ def find_requirements(text):
     # Define patterns to match different types of requirements
     patterns = [
         # ESRS Patterns - require a title starting with '–' to be considered a requirement
-        # Match only at the beginning of a line (re.MULTILINE) and not followed by '(' to avoid cross-references.
-        r"^(Disclosure\s+Requirement\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)(?!\s*\()",  # e.g., Disclosure Requirement G1-2 – title
-        r"^(Disclosure\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)(?!\s*\()",             # e.g., Disclosure G1-2 – title
-        r"^(([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)(?!\s*\()",                          # e.g., G1-2 – title
+        r"(Disclosure\s+Requirement\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",  # e.g., Disclosure Requirement G1-2 – title
+        r"(Disclosure\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",             # e.g., Disclosure G1-2 – title
+        r"(([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",                          # e.g., G1-2 – title
         r"(Kriterium\s+\d{1,2})",                                 # German: Kriterium 10
         r"(Criterion\s+\d{1,2})",                                 # English: Criterion 7
         r"(\b\d{1,2}\.\s+(?:Strategie|Wesentlichkeit|Ziele|Tiefe der Wertschöpfungskette|Verantwortung|Regeln und Prozesse|Kontrolle|Anreizsysteme|Beteiligung von Anspruchsgruppen|Innovations- und Produktmanagement|Inanspruchnahme natürlicher Ressourcen|Ressourcenmanagement|Klimarelevante Emissionen|Arbeitnehmerrechte|Chancengleichheit|Qualifizierung|Menschenrechte|Gemeinwesen|Politische Einflussnahme|Gesetzes- und richtlinienkonformes Verhalten))",  # German numbered sections
@@ -163,7 +162,7 @@ def find_requirements(text):
         #r"\b((\d{1,3}[\-–—−]\d{1,2})[^\n]*)",                           # e.g., 2-1 title standalone
     ]
     combined_pattern = "|".join(patterns)
-    regex = re.compile(combined_pattern, re.MULTILINE)
+    regex = re.compile(combined_pattern)
 
     matches = []
     for m in regex.finditer(text):
