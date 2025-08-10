@@ -399,6 +399,13 @@ def _process_segment_core(segment, standard_type):
                - str: Processed segment with sub-points included.
                - list: A list of individual sub-points.
     """
+    # Discard everything according to "APPLICATION REQUIREMENTS" before any further processing
+    _app_marker = "APPLICATION REQUIREMENTS"
+    upper_seg = segment.upper()
+    marker_idx = upper_seg.find(_app_marker)
+    if marker_idx != -1:
+        segment = segment[:marker_idx]
+
     lines = segment.split('\n')
     result_parts = []
     sub_points = []
