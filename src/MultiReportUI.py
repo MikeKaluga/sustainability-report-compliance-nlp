@@ -1,472 +1,388 @@
-"""
-This script provides a graphical user interface (GUI) for analyzing compliance of sustainability reports
-against a given standard. It allows users to select a standard PDF and multiple report PDFs, and then
-performs an analysis to match requirements from the standard to the content of the reports.
+"""Multi-report GUI aligned with latest single-report UI architecture.
 
-Key Features:
-- Extracts requirements from a standard PDF.
-- Processes multiple sustainability reports to extract paragraphs.
-- Embeds text using Sentence-BERT (SBERT) and matches requirements to report content using cosine similarity.
-- Displays summary statistics of the analysis in a user-friendly interface.
+Features (per loaded report):
+ - Extract requirements (with sub-points) from a standard PDF (ESRS / GRI autodetect).
+ - Load multiple report PDFs.
+ - For each report: parse paragraphs, embed, match (top-k) per requirement or sub-point.
+ - Select a report + requirement + optional sub-point to view matches.
+ - Run LLM analysis (current selection) using shared logic from analyze.run_llm_analysis.
+ - Export (requirements / paragraphs / matches / LLM analysis) for the currently selected report via shared exporter.
+ - Language switching, Help/About reuse existing managers.
 
-Usage:
-- Run the script to launch the GUI.
-- Use the interface to select a standard PDF and multiple report PDFs.
-- Click "Run Analysis" to perform the compliance analysis and view the results.
+Data structures:
+ self.requirements_data: {code: {'full_text': str, 'sub_points': [...], ...}}
+ self.reports: {path: {'paras': [...], 'emb': tensor, 'matches': {text->[(idx, score), ...]}}}
+
+Matching stores results separately per report; current report selection is projected onto self.report_paras & self.matches
+ so existing event_handlers + exporter logic work unchanged.
 """
 
 import warnings
-# Suppress a specific FutureWarning from the transformers library
-warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
+warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*", category=FutureWarning)
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import ttk, Listbox, Scrollbar, messagebox, filedialog
 import os
-import threading
-import pandas as pd
 
-# Import functionalities from your existing modules
-from extractor import extract_requirements_from_standard_pdf
-from parser import extract_paragraphs_from_pdf
 from embedder import SBERTEmbedder
 from matcher import match_requirements_to_report
-from translations import translate, switch_language
-from analyze import analyze_matches_with_llm
-from exporter import export_requirements, is_export_available
-from extractor import detect_standard_from_pdf
+from translations import translate
+from extractor import extract_requirements_from_standard_pdf, detect_standard_from_pdf
+from parser import extract_paragraphs_from_pdf
+from analyze import run_llm_analysis
+from menu_manager import configure_export_menu
+from language_manager import switch_language_and_update_ui
+from event_handlers import handle_requirement_selection
+
 
 class MultiReportApp(tk.Tk):
-    """
-    An application for compliance analysis of one standard against multiple sustainability reports.
-    """
     def __init__(self):
         super().__init__()
-        self.title(translate("multi_report_app_title"))
-        self.geometry("900x700")
+        self.title(translate("multi_report_app_title") if translate("multi_report_app_title") != "multi_report_app_title" else translate("app_title") + " (Multi)")
+        self.geometry("1400x850")
 
-        messagebox.showwarning(
-            title=translate("dev_warning_title"),
-            message=translate("dev_warning_message")
-        )
-
-        # --- Data storage ---
+        # State (mirrors single-report UI where possible)
         self.standard_pdf_path = None
-        self.report_pdf_paths = []
+        self.detected_standard = None
         self.requirements_data = {}
         self.standard_emb = None
         self.embedder = SBERTEmbedder()
-        self.results = {} # {report_path: matches}
-        self.llm_results_agg = {} # {req_code: (compliant_count, total_count)}
+        self.current_req_code = None
+        self.current_report_path = None
+        self.reports = {}  # path -> {'paras': [...], 'emb': tensor, 'matches': {text:[(idx, score), ...]}}
+        self.matches = None  # projection of current report matches (for exporter/event_handlers compatibility)
+        self.report_paras = []  # projection of current report paragraphs
 
-        self._create_widgets()
+        self._create_menu()
+        self._create_layout()
 
-    def _create_widgets(self):
-        """Creates the GUI layout."""
-        # --- Main container ---
-        main_frame = ttk.Frame(self, padding="10")
-        main_frame.pack(expand=True, fill=tk.BOTH)
+    # ---------------- UI Construction -----------------
+    def _create_menu(self):
+        self.menu_bar = tk.Menu(self)
+        self.config(menu=self.menu_bar)
 
-        # --- Top frame for controls ---
-        control_frame = ttk.Frame(main_frame)
-        control_frame.pack(fill=tk.X, pady=5)
+        # Export menu (reused; state updated based on selected report)
+        self.export_menu = tk.Menu(self.menu_bar, tearoff=0)
+        configure_export_menu(self, self.export_menu)
+        self.menu_bar.add_cascade(label="Export", menu=self.export_menu)
 
-        self.select_standard_btn = ttk.Button(control_frame, text=translate("select_standard"), command=self._select_standard_file)
-        self.select_standard_btn.pack(side=tk.LEFT, padx=5)
+        # FAQ
+        from help_info import show_help, show_about
+        self.faq_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.faq_menu.add_command(label=translate("help"), command=lambda: show_help(self))
+        self.faq_menu.add_command(label=translate("about"), command=lambda: show_about(self))
+        self.menu_bar.add_cascade(label="FAQ", menu=self.faq_menu)
 
-        self.select_reports_btn = ttk.Button(control_frame, text=translate("select_multiple_reports"), command=self._select_report_files, state=tk.DISABLED)
-        self.select_reports_btn.pack(side=tk.LEFT, padx=5)
+        # Language switch
+        self.menu_bar.add_command(label="DE/EN", command=lambda: switch_language_and_update_ui(self))
 
-        self.run_analysis_btn = ttk.Button(control_frame, text=translate("run_analysis"), command=self._run_analysis, state=tk.DISABLED)
-        self.run_analysis_btn.pack(side=tk.LEFT, padx=5)
+    def _create_layout(self):
+        main_frame = ttk.Frame(self, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.llm_analysis_btn = ttk.Button(control_frame, text=translate("analyze_with_llm"), command=self._run_llm_analysis, state=tk.DISABLED)
-        self.llm_analysis_btn.pack(side=tk.LEFT, padx=5)
+        # Top controls
+        top_frame = ttk.Frame(main_frame)
+        top_frame.pack(fill=tk.X, pady=5)
 
-        self.export_btn = ttk.Button(control_frame, text=translate("export_results"), command=self._show_export_menu, state=tk.DISABLED)
-        self.export_btn.pack(side=tk.LEFT, padx=10)
+        self.select_standard_btn = ttk.Button(top_frame, text=translate("select_standard"), command=self._select_standard_file)
+        self.select_standard_btn.pack(side=tk.LEFT, padx=(0, 10))
 
-        # --- Frame for selected files list ---
-        files_frame = ttk.LabelFrame(main_frame, text=translate("selected_files"), padding="10")
-        files_frame.pack(fill=tk.X, pady=10)
-        self.selected_files_list = tk.Listbox(files_frame, height=5)
-        self.selected_files_list.pack(fill=tk.X, expand=True)
+        self.add_reports_btn = ttk.Button(
+            top_frame,
+            text=translate("select_reports") if translate("select_reports") != "select_reports" else "Select Reports",
+            command=self._select_reports,
+            state=tk.DISABLED
+        )
+        self.add_reports_btn.pack(side=tk.LEFT, padx=(0, 10))
 
-        # --- Frame for results ---
-        results_frame = ttk.LabelFrame(main_frame, text=translate("summary_statistics"), padding="10")
-        results_frame.pack(expand=True, fill=tk.BOTH)
+        self.parse_reports_btn = ttk.Button(
+            top_frame,
+            text=translate("parse_reports") if translate("parse_reports") != "parse_reports" else "Parse Reports",
+            command=self._parse_reports,
+            state=tk.DISABLED
+        )
+        self.parse_reports_btn.pack(side=tk.LEFT)
 
-        # --- Treeview for statistics ---
-        self.stats_tree = ttk.Treeview(results_frame, columns=("req_code", "req_text", "avg_max_score", "reports_covered", "llm_compliance"), show="headings")
-        self.stats_tree.heading("req_code", text=translate("req_code"))
-        self.stats_tree.heading("req_text", text=translate("req_text"))
-        self.stats_tree.heading("avg_max_score", text=translate("avg_max_score"))
-        self.stats_tree.heading("reports_covered", text=translate("reports_covered"))
-        self.stats_tree.heading("llm_compliance", text=translate("llm_compliance"))
+        self.run_match_btn = ttk.Button(
+            top_frame,
+            text=translate("run_matching"),
+            command=self._run_all_matching,
+            state=tk.DISABLED
+        )
+        self.run_match_btn.pack(side=tk.LEFT)
 
-        self.stats_tree.column("req_code", width=100)
-        self.stats_tree.column("req_text", width=350)
-        self.stats_tree.column("avg_max_score", width=120, anchor=tk.CENTER)
-        self.stats_tree.column("reports_covered", width=120, anchor=tk.CENTER)
-        self.stats_tree.column("llm_compliance", width=120, anchor=tk.CENTER)
-        
-        self.stats_tree.pack(expand=True, fill=tk.BOTH)
+        self.export_llm_btn = ttk.Button(
+            top_frame,
+            text=translate("export_llm_analysis"),
+            command=self._export_llm_all_reports,
+            state=tk.DISABLED
+        )
+        self.export_llm_btn.pack(side=tk.LEFT, padx=(10, 0))
 
-        # --- Status Bar ---
-        self.status_label = ttk.Label(self, text=translate("initial_status"), relief=tk.SUNKEN, anchor=tk.W, padding=5)
-        self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
+        self.status_label = ttk.Label(top_frame, text=translate("initial_status"))
+        self.status_label.pack(side=tk.LEFT, padx=20)
 
+        # Second row: Report selection list
+        report_frame = ttk.LabelFrame(main_frame, text=translate("reports") if translate("reports") != "reports" else "Reports", padding=5)
+        report_frame.pack(fill=tk.X, pady=5)
+
+        self.report_listbox = Listbox(report_frame, height=4)
+        self.report_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.report_listbox.bind('<<ListboxSelect>>', self._on_report_select)
+        report_scroll = Scrollbar(report_frame, command=self.report_listbox.yview)
+        report_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.report_listbox.config(yscrollcommand=report_scroll.set)
+
+        # Bottom panes (reuse single-report structure)
+        bottom_frame = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
+        bottom_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+
+        self.list_container = ttk.LabelFrame(bottom_frame, text=translate("requirements_from_standard"), padding=5)
+        bottom_frame.add(self.list_container, weight=1)
+        self.req_scrollbar = Scrollbar(self.list_container)
+        self.req_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.req_listbox = Listbox(self.list_container, yscrollcommand=self.req_scrollbar.set)
+        self.req_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.req_listbox.bind('<<ListboxSelect>>', self._on_requirement_select)
+        self.req_scrollbar.config(command=self.req_listbox.yview)
+
+        self.sub_point_container = ttk.LabelFrame(bottom_frame, text=translate("sub_points"), padding=5)
+        bottom_frame.add(self.sub_point_container, weight=2)
+        self.sub_point_scrollbar = Scrollbar(self.sub_point_container)
+        self.sub_point_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.sub_point_listbox = Listbox(self.sub_point_container, yscrollcommand=self.sub_point_scrollbar.set)
+        self.sub_point_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.sub_point_listbox.bind('<<ListboxSelect>>', self._on_sub_point_select)
+        self.sub_point_scrollbar.config(command=self.sub_point_listbox.yview)
+
+        self.text_container = ttk.LabelFrame(bottom_frame, text=translate("requirement_text_and_matches"), padding=5)
+        bottom_frame.add(self.text_container, weight=3)
+        action_frame = ttk.Frame(self.text_container)
+        action_frame.pack(fill=tk.X, pady=(0, 5))
+        self.analyze_llm_btn = ttk.Button(action_frame, text=translate("analyze_with_llm"), command=self._run_llm_analysis_current, state=tk.DISABLED)
+        self.analyze_llm_btn.pack(side=tk.RIGHT)
+        self.text_display = tk.Text(self.text_container, wrap=tk.WORD, state=tk.DISABLED, font=("Segoe UI", 10))
+        self.text_display.pack(fill=tk.BOTH, expand=True)
+
+    # ---------------- Actions -----------------
     def _select_standard_file(self):
-        """Opens a dialog to select a single standard PDF file."""
-        path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
+        path = filedialog.askopenfilename(title=translate("select_standard"), filetypes=[("PDF", "*.pdf")])
         if not path:
             return
-
         self.standard_pdf_path = path
         self.status_label.config(text=translate("extracting_requirements"))
         self.update_idletasks()
-        self.llm_analysis_btn.config(state=tk.DISABLED)
-        self.llm_results_agg = {}
-
         try:
-            self.requirements_data = extract_requirements_from_standard_pdf(self.standard_pdf_path)
-            if not self.requirements_data:
-                messagebox.showerror(translate("error_processing_standard"), translate("no_reqs_found"))
-                return
-
-            # --- Detected standard (ESRS/GRI/UNKNOWN) ---
-            self.detected_standard = detect_standard_from_pdf(self.standard_pdf_path)
-
-            req_texts = list(self.requirements_data.values())
-            self.standard_emb = self.embedder.encode(req_texts)
-            
-            self.selected_files_list.insert(tk.END, f"Standard: {os.path.basename(self.standard_pdf_path)}")
-            self.select_reports_btn.config(state=tk.NORMAL)
-            # --- Include detected standard in status ---
-            self.status_label.config(text=f"{translate('standard_ready_multi')} {translate('standard_detected', standard=self.detected_standard or 'UNKNOWN')}")
+            self.requirements_data = extract_requirements_from_standard_pdf(path)
+            self.detected_standard = detect_standard_from_pdf(path)
+            # Populate requirements list
+            self.req_listbox.delete(0, tk.END)
+            for code in self.requirements_data.keys():
+                self.req_listbox.insert(tk.END, code)
+            # Prepare texts for embedding (sub-points first)
+            standard_texts_for_embedding = []
+            for req_data in self.requirements_data.values():
+                if req_data['sub_points']:
+                    standard_texts_for_embedding.extend([sp.strip() for sp in req_data['sub_points']])
+                else:
+                    standard_texts_for_embedding.append(req_data['full_text'].strip())
+            self.standard_emb = self.embedder.encode(standard_texts_for_embedding)
+            self.status_label.config(text=f"{len(self.requirements_data)} {translate('reqs_loaded')} {translate('standard_detected', standard=self.detected_standard or 'UNKNOWN')}")
+            self.add_reports_btn.config(state=tk.NORMAL)
+            self.export_menu.entryconfig(0, state=tk.NORMAL)
         except Exception as e:
             messagebox.showerror(translate("error_processing_standard"), str(e))
             self.status_label.config(text=translate("error_try_again"))
 
-    def _select_report_files(self):
-        """Opens a dialog to select multiple report PDF files."""
-        paths = filedialog.askopenfilenames(filetypes=[("PDF Files", "*.pdf")])
+    def _select_reports(self):
+        paths = filedialog.askopenfilenames(title=translate("select_reports") if translate("select_reports") != "select_reports" else "Select Reports", filetypes=[("PDF", "*.pdf")])
         if not paths:
             return
-        
-        self.report_pdf_paths = paths
-        self.llm_analysis_btn.config(state=tk.DISABLED)
-        self.llm_results_agg = {}
-        self.selected_files_list.insert(tk.END, "--- Reports ---")
-        for path in paths:
-            self.selected_files_list.insert(tk.END, os.path.basename(path))
-        
-        self.run_analysis_btn.config(state=tk.NORMAL)
-        self.status_label.config(text=translate("reports_ready_multi", count=len(paths)))
+        new_paths = [p for p in paths if p not in self.reports]
+        for p in new_paths:
+            self.reports[p] = {'paras': [], 'emb': None, 'matches': None}
+            self.report_listbox.insert(tk.END, os.path.basename(p))
+        if self.reports and not self.current_report_path:
+            # select first automatically
+            self.report_listbox.select_set(0)
+            self.current_report_path = list(self.reports.keys())[0]
+        # Enable parse button (explicit step before matching)
+        self.parse_reports_btn.config(state=tk.NORMAL)
+        self.run_match_btn.config(state=tk.DISABLED)
+        self.status_label.config(text=translate("reports_ready_multi", count=len(self.reports)) if translate("reports_ready_multi", count=0) != "reports_ready_multi" else f"{len(self.reports)} reports selected.")
+        self.export_menu.entryconfig(1, state=tk.DISABLED)  # paragraphs export until parsing done
 
-    def _run_analysis(self):
-        """Runs the analysis in a separate thread to keep the UI responsive."""
-        self.run_analysis_btn.config(state=tk.DISABLED)
-        self.select_standard_btn.config(state=tk.DISABLED)
-        self.select_reports_btn.config(state=tk.DISABLED)
-        self.llm_analysis_btn.config(state=tk.DISABLED)
-        self.llm_results_agg = {}
-        
-        thread = threading.Thread(target=self._analysis_thread)
-        thread.start()
-
-    def _analysis_thread(self):
-        """The actual analysis logic that runs in a background thread."""
-        self.results = {}
-        total_reports = len(self.report_pdf_paths)
-
-        for i, report_path in enumerate(self.report_pdf_paths):
-            self.status_label.config(text=translate("processing_report", current=i+1, total=total_reports, name=os.path.basename(report_path)))
-            try:
-                report_paras = extract_paragraphs_from_pdf(report_path)
-                if not report_paras:
-                    continue
-                
-                report_emb = self.embedder.encode(report_paras)
-                matches = match_requirements_to_report(self.standard_emb, report_emb, top_k=1) # We only need the top match for stats
-                
-                self.results[report_path] = matches
-            except Exception as e:
-                print(f"Could not process {report_path}: {e}") # Log error to console
-        
-        self._calculate_and_display_stats()
-        self.status_label.config(text=translate("analysis_complete"))
-        self.run_analysis_btn.config(state=tk.NORMAL)
-        self.select_standard_btn.config(state=tk.NORMAL)
-        self.select_reports_btn.config(state=tk.NORMAL)
-        self.llm_analysis_btn.config(state=tk.NORMAL)
-
-    def _run_llm_analysis(self):
-        """Runs the LLM analysis in a separate thread."""
-        self.run_analysis_btn.config(state=tk.DISABLED)
-        self.select_standard_btn.config(state=tk.DISABLED)
-        self.select_reports_btn.config(state=tk.DISABLED)
-        self.llm_analysis_btn.config(state=tk.DISABLED)
-        
-        thread = threading.Thread(target=self._llm_analysis_thread)
-        thread.start()
-
-    def _llm_analysis_thread(self):
-        """The actual LLM analysis logic that runs in a background thread."""
-        total_reports = len(self.report_pdf_paths)
-        self.llm_results_agg = {}
-
-        for i, report_path in enumerate(self.report_pdf_paths):
-            if report_path not in self.results:
-                continue
-
-            self.status_label.config(text=translate("llm_analysis_progress", current=i+1, total=total_reports, name=os.path.basename(report_path)))
-            try:
-                # Re-extract paragraphs as they are not stored to save memory
-                report_paras = extract_paragraphs_from_pdf(report_path)
-                if not report_paras:
-                    continue
-                
-                # The matches from SBERT are already in self.results
-                sbert_matches = self.results[report_path]
-                
-                # Run LLM analysis
-                llm_matches = analyze_matches_with_llm(sbert_matches, list(self.requirements_data.values()), report_paras)
-                
-                # Store LLM results by augmenting the existing matches
-                self.results[report_path] = llm_matches
-
-            except Exception as e:
-                print(f"Could not perform LLM analysis on {report_path}: {e}")
-
-        self._aggregate_llm_results()
-        self._update_treeview_with_llm_results()
-
-        self.status_label.config(text=translate("llm_analysis_complete"))
-        self.run_analysis_btn.config(state=tk.NORMAL)
-        self.select_standard_btn.config(state=tk.NORMAL)
-        self.select_reports_btn.config(state=tk.NORMAL)
-        self.llm_analysis_btn.config(state=tk.NORMAL)
-        self.export_btn.config(state=tk.NORMAL)
-
-    def _aggregate_llm_results(self):
-        """Aggregates LLM results from all reports for each requirement."""
-        self.llm_results_agg = {}
-        req_codes = list(self.requirements_data.keys())
-
-        for i, code in enumerate(req_codes):
-            llm_explanations = []
-            for report_path in self.report_pdf_paths:
-                if report_path in self.results and self.results[report_path][i]:
-                    top_match = self.results[report_path][i][0]
-                    # Check if LLM analysis was performed (tuple is longer and explanation exists)
-                    if len(top_match) > 3 and top_match[3]: # top_match[3] is the llm_explanation
-                        llm_explanations.append(top_match[3])
-            # Store the first available explanation, or None if no explanations exist
-            self.llm_results_agg[code] = llm_explanations[0] if llm_explanations else None
-
-    def _update_treeview_with_llm_results(self):
-        """Updates the 'LLM Compliance' column in the treeview without rebuilding it."""
-        for item_id in self.stats_tree.get_children():
-            req_code = self.stats_tree.item(item_id, "values")[0]
-            if req_code in self.llm_results_agg:
-                explanation = self.llm_results_agg[req_code]
-                display_text = explanation[:50] + "..." if explanation and len(explanation) > 50 else (explanation or "No analysis")
-                self.stats_tree.set(item_id, "llm_compliance", display_text)
-
-    def _calculate_and_display_stats(self):
-        """Calculates summary statistics and displays them in the treeview."""
-        # Clear previous results
-        for item in self.stats_tree.get_children():
-            self.stats_tree.delete(item)
-
-        req_codes = list(self.requirements_data.keys())
-        req_texts = list(self.requirements_data.values())
-
-        for i, code in enumerate(req_codes):
-            max_scores = []
-            for report_path in self.report_pdf_paths:
-                if report_path in self.results and self.results[report_path][i]:
-                    # Get the score of the best match for this requirement in this report
-                    top_match = self.results[report_path][i][0]
-                    # top_match is (para_idx, sbert_score) or could be longer after LLM run
-                    # We always use the SBERT score for this column.
-                    top_match_score = top_match[1]
-                    max_scores.append(top_match_score)
-            
-            if not max_scores:
-                avg_max_score = 0.0
-                reports_covered = 0
-            else:
-                avg_max_score = sum(max_scores) / len(max_scores)
-                # Count reports where the best match score is above a threshold (e.g., 0.5)
-                reports_covered = sum(1 for score in max_scores if score > 0.5)
-
-            llm_compliance_text = self.llm_results_agg.get(code, "No analysis")
-            if llm_compliance_text and len(llm_compliance_text) > 50:
-                llm_compliance_text = llm_compliance_text[:50] + "..."""
-
-
-            self.stats_tree.insert("", tk.END, values=(
-                code,
-                req_texts[i][:100] + "...", # Truncate text for display
-                f"{avg_max_score:.2f}",
-                f"{reports_covered} / {len(self.report_pdf_paths)}",
-                llm_compliance_text
-            ))
-
-    def _show_export_menu(self):
-        """Shows export options menu."""
-        export_menu = tk.Toplevel(self)
-        export_menu.title(translate("export_options"))
-        export_menu.geometry("300x200")
-        export_menu.transient(self)
-        export_menu.grab_set()
-
-        ttk.Label(export_menu, text=translate("select_export_format")).pack(pady=10)
-
-        if is_export_available('csv'):
-            ttk.Button(export_menu, text="CSV", command=lambda: self._export_data('csv')).pack(pady=5)
-        
-        if is_export_available('excel'):
-            ttk.Button(export_menu, text="Excel", command=lambda: self._export_data('excel')).pack(pady=5)
-        
-        if is_export_available('pdf'):
-            ttk.Button(export_menu, text="PDF", command=lambda: self._export_data('pdf')).pack(pady=5)
-
-        ttk.Button(export_menu, text=translate("cancel"), command=export_menu.destroy).pack(pady=10)
-
-    def _export_data(self, file_type):
-        """Exports the current analysis results to the specified format."""
-        if not self.results:
-            messagebox.showwarning(translate("no_data"), translate("no_results_to_export"))
+    def _parse_reports(self):
+        if not self.reports:
             return
+        total = len(self.reports)
+        parsed_any = False
+        for i, (path, data) in enumerate(self.reports.items(), start=1):
+            if data['paras']:
+                continue  # already parsed
+            prog_txt = translate('parsing_report', current=i, total=total, name=os.path.basename(path))
+            if prog_txt == 'parsing_report':
+                prog_txt = f"Parsing report {i}/{total}: {os.path.basename(path)}"
+            self.status_label.config(text=prog_txt)
+            self.update_idletasks()
+            try:
+                data['paras'] = extract_paragraphs_from_pdf(path)
+                if data['paras']:
+                    data['emb'] = self.embedder.encode(data['paras'])
+                    parsed_any = True
+                else:
+                    print(f"No paragraphs extracted from {path}")
+            except Exception as e:
+                print(f"Error parsing {path}: {e}")
+        if parsed_any:
+            self.status_label.config(text=translate('reports_parsed_status', count=sum(1 for d in self.reports.values() if d['paras'])) if translate('reports_parsed_status', count=0) != 'reports_parsed_status' else 'Reports parsed.')
+            self.parse_reports_btn.config(state=tk.NORMAL)
+            self.run_match_btn.config(state=tk.NORMAL)
+            self.export_menu.entryconfig(1, state=tk.NORMAL)  # paragraphs export
+        else:
+            self.status_label.config(text=translate('no_paras_to_export'))
 
-        try:
-            # Prepare data for export
-            export_data = []
-            req_codes = list(self.requirements_data.keys())
-            req_texts = list(self.requirements_data.values())
+    def _run_all_matching(self):
+        # Ensure embeddings for standard are ready
+        if self.standard_emb is None:
+            return
+        self.status_label.config(text=translate("performing_matching"))
+        self.update_idletasks()
+        # Prepare standard texts order identical to embedding order
+        standard_texts = []
+        for req in self.requirements_data.values():
+            if req['sub_points']:
+                standard_texts.extend([sp.strip() for sp in req['sub_points']])
+            else:
+                standard_texts.append(req['full_text'].strip())
+        total_reports = len(self.reports)
+        for i, (path, data) in enumerate(self.reports.items(), start=1):
+            # Status headline
+            base_status = translate('processing_report', current=i, total=total_reports, name=os.path.basename(path))
+            if base_status == 'processing_report':  # fallback if key missing
+                base_status = f"Processing report {i}/{total_reports}: {os.path.basename(path)}"
+            self.status_label.config(text=base_status)
+            self.update_idletasks()
+            # Ensure parsed (fallback if user skipped parse step)
+            if not data['paras']:
+                try:
+                    data['paras'] = extract_paragraphs_from_pdf(path)
+                    if data['paras']:
+                        data['emb'] = self.embedder.encode(data['paras'])
+                except Exception as e:
+                    print(f"Error parsing (fallback) {path}: {e}")
+            if not data['paras'] or data['emb'] is None:
+                print(f"Skipping {path}: not parsed / no embeddings")
+                continue
+            if data['emb'] is None:
+                print(f"Skipping matching for {path} (no embeddings)")
+                continue
+            all_matches = match_requirements_to_report(self.standard_emb, data['emb'], top_k=5)
+            text_matches = {text: all_matches[idx] for idx, text in enumerate(standard_texts) if idx < len(all_matches)}
+            data['matches'] = text_matches
+            # Per-report completion status
+            done_status = translate('report_ready') if translate('report_ready') != 'report_ready' else 'Parsed'
+            self.status_label.config(text=f"{done_status}: {os.path.basename(path)} ({len(data['paras'])} paras)")
+            self.update_idletasks()
+        # Project current report
+        if self.current_report_path and self.reports[self.current_report_path]['matches']:
+            self._project_current_report(self.current_report_path)
+        self.status_label.config(text=translate("matching_completed_label"))
+        self.export_menu.entryconfig(2, state=tk.NORMAL)  # matches export
+        self.export_llm_btn.config(state=tk.NORMAL)
+        self.analyze_llm_btn.config(state=tk.NORMAL)
+        self.export_menu.entryconfig(1, state=tk.NORMAL)  # paragraphs export now available
+        message = translate("matching_completed") if translate("matching_completed") != 'matching_completed' else 'Matching completed.'
+        messagebox.showinfo(translate("completed"), message)
 
-            for i, code in enumerate(req_codes):
-                # Calculate statistics for this requirement
-                max_scores = []
-                llm_explanations = []
-                
-                for report_path in self.report_pdf_paths:
-                    if report_path in self.results and self.results[report_path][i]:
-                        top_match = self.results[report_path][i][0]
-                        max_scores.append(top_match[1])  # SBERT score
-                        
-                        # Check for LLM explanation
-                        if len(top_match) > 3 and top_match[3]:
-                            llm_explanations.append(top_match[3])
+    def _project_current_report(self, report_path):
+        data = self.reports.get(report_path)
+        if not data:
+            return
+        self.report_paras = data['paras']
+        self.matches = data['matches']
 
-                avg_score = sum(max_scores) / len(max_scores) if max_scores else 0.0
-                reports_covered = sum(1 for score in max_scores if score > 0.5)
-                llm_analysis = llm_explanations[0] if llm_explanations else "No analysis"
+    # ---------------- Selection Handlers -----------------
+    def _on_report_select(self, event):
+        if not self.report_listbox.curselection():
+            return
+        idx = self.report_listbox.curselection()[0]
+        path = list(self.reports.keys())[idx]
+        self.current_report_path = path
+        self._project_current_report(path)
+        # Refresh requirement display (if one selected)
+        if self.current_req_code:
+            if self.sub_point_listbox.curselection():
+                sp_idx = self.sub_point_listbox.curselection()[0]
+                sp_text = self.sub_point_listbox.get(sp_idx).strip()
+                handle_requirement_selection(self, None, sub_point_text=sp_text)
+            else:
+                handle_requirement_selection(self, None)
 
-                export_data.append({
-                    'Requirement Code': code,
-                    'Requirement Text': req_texts[i],
-                    'Avg Max Score': f"{avg_score:.2f}",
-                    'Reports Covered': f"{reports_covered} / {len(self.report_pdf_paths)}",
-                    'LLM Analysis': llm_analysis
-                })
+    def _on_requirement_select(self, event):
+        if not self.req_listbox.curselection():
+            return
+        sel_index = self.req_listbox.curselection()[0]
+        code = self.req_listbox.get(sel_index)
+        self.current_req_code = code
+        self.sub_point_listbox.delete(0, tk.END)
+        self.text_display.config(state=tk.NORMAL)
+        self.text_display.delete(1.0, tk.END)
+        self.text_display.config(state=tk.DISABLED)
+        self.analyze_llm_btn.config(state=tk.DISABLED)
+        if code in self.requirements_data:
+            req_data = self.requirements_data[code]
+            if req_data['sub_points']:
+                for sp in req_data['sub_points']:
+                    self.sub_point_listbox.insert(tk.END, sp)
+            handle_requirement_selection(self, event)
 
-            # Create DataFrame and export
-            import pandas as pd
-            df = pd.DataFrame(export_data)
-            
-            from tkinter import filedialog
-            file_types = {
-                'csv': [("CSV File", "*.csv")],
-                'excel': [("Excel File", "*.xlsx")],
-                'pdf': [("PDF File", "*.pdf")]
-            }
-            
-            path = filedialog.asksaveasfilename(
-                defaultextension=f".{file_type}",
-                filetypes=file_types.get(file_type, []),
-                initialfile="multi_report_analysis",
-                title=f"{translate('export_as')} {file_type.upper()}"
-            )
-            
-            if not path:
-                return
+    def _on_sub_point_select(self, event):
+        if not self.current_req_code or not self.sub_point_listbox.curselection():
+            return
+        sp_index = self.sub_point_listbox.curselection()[0]
+        sp_text = self.sub_point_listbox.get(sp_index)
+        handle_requirement_selection(self, event, sub_point_text=sp_text.strip())
 
-            if file_type == 'csv':
-                df.to_csv(path, index=False, sep=';', encoding='utf-8-sig')
-            elif file_type == 'excel':
-                df.to_excel(path, index=False)
-            elif file_type == 'pdf':
-                from exporter import _export_df_to_pdf
-                _export_df_to_pdf(df, path, "Multi-Report Analysis Results")
+    # ---------------- LLM Analysis -----------------
+    def _run_llm_analysis_current(self):
+        if not self.current_req_code:
+            return
+        selected_sub_point = None
+        if self.sub_point_listbox.curselection():
+            selected_sub_point = self.sub_point_listbox.get(self.sub_point_listbox.curselection()[0]).strip()
+        run_llm_analysis(self, self.current_req_code, self.requirements_data, self.matches, self.report_paras, self.status_label, self.update_idletasks, translate, selected_sub_point=selected_sub_point)
 
-            messagebox.showinfo(translate("export_successful"), translate("export_successful_text", path=path))
+    def _export_llm_all_reports(self):
+        # Iterate each report, run LLM analysis per requirement/sub-point not yet analyzed; then aggregate into CSV via exporter.
+        from exporter import export_llm_analysis as export_llm_analysis_func
+        # Export only for currently projected report (consistent with single-report exporter) – instruct user.
+        if not self.current_report_path:
+            messagebox.showwarning(translate("no_data"), translate("no_paras_to_export"))
+            return
+        export_llm_analysis_func(self)
 
-        except Exception as e:
-            messagebox.showerror(translate("export_error"), translate("export_error_text", e=e))
 
 if __name__ == '__main__':
-    # Add new translations for this UI
     from translations import TRANSLATIONS
-    
-    new_en = {
-        "multi_report_app_title": "Multi-Report Compliance Analyzer",
-        "select_multiple_reports": "2. Select Reports",
-        "run_analysis": "3. Run Analysis",
-        "selected_files": "Selected Files",
-        "summary_statistics": "Summary Statistics",
-        "req_code": "Req. Code",
-        "req_text": "Requirement Text",
-        "avg_max_score": "Avg. Max Score",
-        "reports_covered": "Reports Covered",
-        "llm_compliance": "LLM Compliance",
-        "standard_ready_multi": "Standard loaded. Please select one or more reports.",
-        "reports_ready_multi": "{count} reports selected. Ready for analysis.",
-        "processing_report": "Processing report {current}/{total}: {name}...",
-        "analysis_complete": "Analysis complete. Summary statistics are shown below.",
-        "analyze_with_llm": "4. Analyze with LLM",
-        "export_results": "5. Export",
-        "export_options": "Export Options",
-        "select_export_format": "Select export format:",
-        "no_results_to_export": "No analysis results to export.",
-        "llm_analysis_progress": "Performing LLM analysis on report {current}/{total}: {name}...",
-        "llm_analysis_complete": "LLM analysis complete. Results updated.",
-        "standard_detected": "Detected standard: {standard}",
-        "dev_warning_title": "Development Warning",
-        "dev_warning_message": "The multi-report analysis feature is currently under development and may not function as expected. Please use with caution."
-    }
-    
-    new_de = {
-        "multi_report_app_title": "Multi-Bericht Compliance-Analysator",
-        "select_multiple_reports": "2. Berichte auswählen",
-        "run_analysis": "3. Analyse durchführen",
-        "selected_files": "Ausgewählte Dateien",
-        "summary_statistics": "Zusammenfassende Statistiken",
-        "req_code": "Anf.-Code",
-        "req_text": "Anforderungstext",
-        "avg_max_score": "Ø Max Score",
-        "reports_covered": "Abgedeckte Berichte",
-        "llm_compliance": "LLM-Konformität",
-        "standard_ready_multi": "Standard geladen. Bitte einen oder mehrere Berichte auswählen.",
-        "reports_ready_multi": "{count} Berichte ausgewählt. Bereit zur Analyse.",
-        "processing_report": "Verarbeite Bericht {current}/{total}: {name}...",
-        "analysis_complete": "Analyse abgeschlossen. Statistiken werden unten angezeigt.",
-        "analyze_with_llm": "4. Mit LLM analysieren",
-        "export_results": "5. Exportieren",
-        "export_options": "Export-Optionen",
-        "select_export_format": "Export-Format auswählen:",
-        "no_results_to_export": "Keine Analyseergebnisse zum Exportieren.",
-        "llm_analysis_progress": "Führe LLM-Analyse für Bericht {current}/{total} durch: {name}...",
-        "llm_analysis_complete": "LLM-Analyse abgeschlossen. Ergebnisse aktualisiert.",
-        "standard_detected": "Erkannter Standard: {standard}",
-        "dev_warning_title": "Entwicklungswarnung",
-        "dev_warning_message": "Die Multi-Bericht-Analysefunktion befindet sich derzeit in der Entwicklung und funktioniert möglicherweise nicht wie erwartet. Bitte mit Vorsicht verwenden."
-    }
-
-    TRANSLATIONS["en"].update(new_en)
-    TRANSLATIONS["de"].update(new_de)
-
+    # Add minimal extra keys if missing
+    TRANSLATIONS['en'].update({
+        'multi_report_app_title': 'Multi-Report Compliance Analyzer',
+        'select_reports': '2. Select Reports',
+        'reports': 'Reports',
+        'reports_ready_multi': '{count} reports selected. Ready.',
+    'parse_reports': '3. Parse Reports',
+    'parsing_report': 'Parsing report {current}/{total}: {name}...',
+    'reports_parsed_status': '{count} reports parsed.',
+    })
+    TRANSLATIONS['de'].update({
+        'multi_report_app_title': 'Multi-Bericht Compliance-Analysator',
+        'select_reports': '2. Berichte auswählen',
+        'reports': 'Berichte',
+        'reports_ready_multi': '{count} Berichte ausgewählt. Bereit.',
+    'parse_reports': '3. Berichte parsen',
+    'parsing_report': 'Bericht wird verarbeitet {current}/{total}: {name}...',
+    'reports_parsed_status': '{count} Berichte geparst.',
+    })
     app = MultiReportApp()
     app.mainloop()
