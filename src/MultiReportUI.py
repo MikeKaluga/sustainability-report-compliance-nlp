@@ -133,6 +133,10 @@ class MultiReportApp(tk.Tk):
         report_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.report_listbox.config(yscrollcommand=report_scroll.set)
 
+        # Current report indicator
+        self.current_report_label = ttk.Label(main_frame, text="", foreground="#444")
+        self.current_report_label.pack(fill=tk.X, pady=(0,4))
+
         # Bottom panes (reuse single-report structure)
         bottom_frame = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
         bottom_frame.pack(fill=tk.BOTH, expand=True, pady=10)
@@ -301,6 +305,15 @@ class MultiReportApp(tk.Tk):
             return
         self.report_paras = data['paras']
         self.matches = data['matches']
+        # Update current report label
+        base = os.path.basename(report_path)
+        para_info = f"{len(self.report_paras)} paras" if self.report_paras else "no paragraphs"
+        match_info = f"{len(self.matches)} texts matched" if self.matches else "no matches yet"
+        label_txt = f"Active report: {base}  |  {para_info}  |  {match_info}"
+        self.current_report_label.config(text=label_txt)
+        # If matches missing, disable LLM button
+        if not self.matches:
+            self.analyze_llm_btn.config(state=tk.DISABLED)
 
     # ---------------- Selection Handlers -----------------
     def _on_report_select(self, event):
@@ -310,7 +323,7 @@ class MultiReportApp(tk.Tk):
         path = list(self.reports.keys())[idx]
         self.current_report_path = path
         self._project_current_report(path)
-        # Refresh requirement display (if one selected)
+        # Refresh requirement display (if one selected) to reflect new matches
         if self.current_req_code:
             if self.sub_point_listbox.curselection():
                 sp_idx = self.sub_point_listbox.curselection()[0]
@@ -318,6 +331,11 @@ class MultiReportApp(tk.Tk):
                 handle_requirement_selection(self, None, sub_point_text=sp_text)
             else:
                 handle_requirement_selection(self, None)
+        # If no matches yet for this report, show hint in text area
+        if not self.matches and self.current_req_code:
+            self.text_display.config(state=tk.NORMAL)
+            self.text_display.insert(tk.END, "\n(No matches for this report yet. Run matching after parsing.)")
+            self.text_display.config(state=tk.DISABLED)
 
     def _on_requirement_select(self, event):
         if not self.req_listbox.curselection():
