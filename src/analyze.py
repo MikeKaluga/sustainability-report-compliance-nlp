@@ -220,8 +220,18 @@ def run_llm_analysis(parent, requirement_code, requirements_data, matches, repor
             "LLM Analysis", f"No matches available to analyze for requirement '{requirement_code}'.")
         return
 
-    # Pass only the top-k matched paragraphs (same as shown in GUI)
-    paragraphs = [report_paras[report_idx] for report_idx, score in requirement_matches]
+    # Build paragraphs from matches, guarding against invalid indices
+    paragraphs = [
+        report_paras[report_idx]
+        for report_idx, score in requirement_matches
+        if isinstance(report_idx, int) and 0 <= report_idx < len(report_paras)
+    ]
+
+    # If no valid paragraphs remain, do not call the LLM
+    if not paragraphs or all(not p.strip() for p in paragraphs):
+        messagebox.showinfo(
+            "LLM Analysis", f"No valid matched paragraphs available to analyze for requirement '{requirement_code}'.")
+        return
 
     sub_req_prompt_part = ""
     if sub_requirements:

@@ -252,7 +252,7 @@ class ComplianceApp(tk.Tk):
         self.update_idletasks()
 
         # This returns a flat list of matches for all texts that were embedded (sub-points or full texts)
-        all_matches = match_requirements_to_report(self.standard_emb, self.report_emb, top_k=5)
+        all_matches = match_requirements_to_report(self.standard_emb, self.report_emb, top_k=10)
 
         # Re-structure the flat list of matches into a dictionary mapping text -> matches
         self.matches = {}
