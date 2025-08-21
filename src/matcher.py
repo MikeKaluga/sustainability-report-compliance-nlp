@@ -14,7 +14,7 @@ Usage:
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-def match_requirements_to_report(req_embeddings, report_embeddings, top_k=5):
+def match_requirements_to_report(req_embeddings, report_embeddings, top_k=5, min_score=0.6):
     """
     Matches requirements to report paragraphs based on cosine similarity.
 
@@ -24,6 +24,7 @@ def match_requirements_to_report(req_embeddings, report_embeddings, top_k=5):
         report_embeddings (torch.Tensor): A tensor containing the embeddings of the report paragraphs.
                                           Each row corresponds to the embedding of a paragraph.
         top_k (int): The number of top matches to return for each requirement.
+        min_score (float): Minimum cosine similarity threshold; matches below this are discarded.
 
     Returns:
         list of list of tuple: A list where each element corresponds to a requirement.
@@ -43,13 +44,14 @@ def match_requirements_to_report(req_embeddings, report_embeddings, top_k=5):
         # Compute cosine similarity between the current requirement and all report paragraphs
         sims = cosine_similarity(req_vec.reshape(1, -1), rep_np)[0]
 
-        # Get the indices of the top-k most similar paragraphs in descending order of similarity
-        top_idx = sims.argsort()[-top_k:][::-1]
+        # Sort indices by similarity descending
+        sorted_idx = sims.argsort()[::-1]
 
-        # Get the corresponding similarity scores for the top-k matches
-        top_scores = sims[top_idx]
+        # Filter by threshold and then take up to top_k
+        filtered_idx = [idx for idx in sorted_idx if sims[idx] >= min_score][:top_k]
+        top_scores = [float(sims[idx]) for idx in filtered_idx]
 
         # Store the matches as a list of (index, score) tuples
-        matches.append(list(zip(top_idx, top_scores)))
+        matches.append(list(zip(filtered_idx, top_scores)))
 
     return matches
