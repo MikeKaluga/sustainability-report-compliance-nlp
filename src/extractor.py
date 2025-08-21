@@ -407,39 +407,133 @@ def _process_segment_core(segment, standard_type):
         segment = segment[:marker_idx]
 
     lines = segment.split('\n')
+    # Containers for final combination
     result_parts = []
     sub_points = []
+
+    # State
     current_part = ""
     ignoring_footnote = False
 
-    # Define patterns for sub-points and potential footnotes
+    # Patterns
     esrs_subpoint_pattern = re.compile(r'^(?:\d{1,2}\.|\([a-z]\))\s+.*')
-    gri_subpoint_pattern = re.compile(r'^(?:[a-z]\.|\(?[ivx]+\)?\.)\s+.*')
-    # A potential footnote starts with a number, but is not a numbered list item.
+    # Accept a., a), i., i) as valid GRI subpoints; case-insensitive
+    gri_subpoint_pattern = re.compile(r'^(?:[a-z][\.\)]|\(?[ivx]+\)?[\.\)])\s+.*', flags=re.IGNORECASE)
     footnote_start_pattern = re.compile(r'^\d+\s+.*')
 
-    # The first line is always the main requirement title/text
-    if lines:
-        current_part = lines[0].strip()
+    numeric_prefix = re.compile(r'^\d{1,2}\.\s+')
+    letter_prefix = re.compile(r'^\([a-z]\)\s+|^[a-z]\.\s+', flags=re.IGNORECASE)
+    roman_prefix = re.compile(r'^\(?[ivx]+\)?\.\s+', flags=re.IGNORECASE)
 
-    for line in lines[1:]:
-        line = line.strip()
+    def _subtype_for_line(line: str) -> str:
+        if numeric_prefix.match(line):
+            return 'numeric'
+        if letter_prefix.match(line):
+            return 'letter'
+        if roman_prefix.match(line):
+            return 'roman'
+        return 'other'
+
+    def _strip_enum_prefix(text: str) -> str:
+        text = re.sub(r'^\d{1,2}\.\s+', '', text)
+        text = re.sub(r'^\([a-z]\)\s+', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'^[a-z]\.\s+', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'^\(?[ivx]+\)?\.\s+', '', text, flags=re.IGNORECASE)
+        return text.strip()
+
+    def _first_sentence(text: str) -> str:
+        idx = text.find('.')
+        if idx != -1:
+            return text[:idx+1].strip()
+        return text.strip()
+
+    # Smarter first sentence extractor for GRI: ignore common abbreviations and decimals.
+    def _first_sentence_smart(text: str) -> str:
+        abbreviations = {
+            'e.g.', 'i.e.', 'etc.', 'mr.', 'ms.', 'mrs.', 'dr.', 'prof.', 'no.',
+            'art.', 'fig.', 'eq.', 'est.', 'approx.', 'vs.', 'cf.', 'al.', 'ed.', 'vol.',
+        }
+        i = 0
+        n = len(text)
+        while i < n:
+            if text[i] == '.':
+                # Check decimal number pattern: digit . digit
+                prev_is_digit = i > 0 and text[i-1].isdigit()
+                next_is_digit = i+1 < n and text[i+1].isdigit()
+                if prev_is_digit and next_is_digit:
+                    i += 1
+                    continue
+
+                # Check known abbreviations ending at i (case-insensitive)
+                start = max(0, i - 6)  # window
+                snippet = text[start:i+1].lower()
+                if any(snippet.endswith(abbr) for abbr in abbreviations):
+                    i += 1
+                    continue
+
+                # Consider this a sentence end only if followed by whitespace and an uppercase/opening bracket or end
+                j = i + 1
+                while j < n and text[j].isspace():
+                    j += 1
+                if j >= n or (j < n and (text[j].isupper() or text[j] in '([{"\'')):
+                    return text[:i+1].strip()
+                # Otherwise, keep searching
+            i += 1
+        return text.strip()
+
+    # Helpers to extract enumeration labels (ESRS)
+    def _extract_numeric_label(line):
+        m = re.match(r'^\s*(\d{1,2})\.\s+', line)
+        return m.group(1) if m else None
+
+    def _extract_child_label(line, subtype):
+        if subtype == 'letter':
+            m = re.match(r'^\s*\(([a-z])\)\s+', line, flags=re.IGNORECASE)
+            if not m:
+                m = re.match(r'^\s*([a-z])\.\s+', line, flags=re.IGNORECASE)
+            return m.group(1).lower() if m else None
+        if subtype == 'roman':
+            m = re.match(r'^\s*\(?([ivx]+)\)?\.?\s+', line, flags=re.IGNORECASE)
+            return m.group(1).lower() if m else None
+        return None
+
+    # Build structured parts with meta to preserve hierarchy
+    parts_meta = []
+    if lines:
+        first_line = lines[0].strip()
+        current_part = first_line
+        # Determine if the first line is a subpoint (rare) and classify
+        if standard_type == 'esrs':
+            first_is_sub = bool(esrs_subpoint_pattern.match(first_line))
+        else:
+            # GRI: do NOT consider numeric prefixes as subpoints
+            first_is_sub = bool(gri_subpoint_pattern.match(first_line))
+        current_is_sub = first_is_sub
+        current_subtype = _subtype_for_line(first_line) if first_is_sub else 'other'
+
+    for raw in lines[1:]:
+        line = raw.strip()
         if not line:
             continue
 
-        is_esrs_subpoint = standard_type == 'esrs' and esrs_subpoint_pattern.match(line)
-        is_gri_subpoint = standard_type == 'gri' and gri_subpoint_pattern.match(line)
+        is_esrs_subpoint = standard_type == 'esrs' and bool(esrs_subpoint_pattern.match(line))
+        # GRI: only letter/roman subpoints, never numeric like "2."
+        is_gri_subpoint = standard_type == 'gri' and bool(gri_subpoint_pattern.match(line))
         is_subpoint = is_esrs_subpoint or is_gri_subpoint
 
-        # If we find a new sub-point, we stop ignoring footnotes.
         if is_subpoint:
-            ignoring_footnote = False
+            # Close out current_part
             if current_part:
-                result_parts.append(current_part)
-                # If the previous part was a subpoint, add it to sub_points list
-                if esrs_subpoint_pattern.match(current_part) or gri_subpoint_pattern.match(current_part):
-                    sub_points.append(current_part)
+                parts_meta.append({
+                    'text': current_part,
+                    'is_subpoint': current_is_sub,
+                    'subtype': current_subtype
+                })
+            # Start a new part
             current_part = line
+            current_is_sub = True
+            current_subtype = _subtype_for_line(line)
+            ignoring_footnote = False
             continue
 
         # If we are currently ignoring a footnote, skip this line.
@@ -447,50 +541,135 @@ def _process_segment_core(segment, standard_type):
             continue
 
         # Check for a new footnote to start ignoring.
-        # This is a line that starts with a number but is not a valid sub-point.
         if footnote_start_pattern.match(line) and not is_subpoint:
             ignoring_footnote = True
             continue
-        
-        # If none of the above, it's a continuation of the current part.
+
+        # Continuation of the current part
         if current_part:
             current_part += " " + line
 
-    # Add the last part if it exists
+    # Flush the last part
     if current_part and not ignoring_footnote:
-        result_parts.append(current_part)
-        if esrs_subpoint_pattern.match(current_part) or gri_subpoint_pattern.match(current_part):
-            sub_points.append(current_part)
-    
-    # For GRI, we only want the sub-points, so we filter out the main description.
-    if standard_type == 'gri':
-        # The first part is the main description, which we discard.
-        # However, if the first line was already a subpoint, we keep it.
-        if result_parts and not gri_subpoint_pattern.match(result_parts[0]):
-            result_parts.pop(0)
+        parts_meta.append({
+            'text': current_part,
+            'is_subpoint': current_is_sub,
+            'subtype': current_subtype
+        })
 
-        # Neue Anforderung: Eine GRI Anforderung endet nach dem ersten Punkt (Satzende).
-        # Punkte in Aufzählungskennzeichnungen (a. b. c. i. ii. iii.) werden ignoriert.
-        trimmed_sub_points = []
-        new_result_parts = []
-        for sp in sub_points:
-            enum_match = re.match(r'^((?:[a-z]|(?:\(?[ivx]+\)?))\.)\s+(.*)', sp, flags=re.IGNORECASE)
-            if enum_match:
-                enum_prefix = enum_match.group(1)  # e.g. 'a.' oder 'ii.'
-                rest = enum_match.group(2)
+    # Build result parts (for ESRS we keep structure; for GRI we'll rebuild later)
+    result_parts = [p['text'] for p in parts_meta]
+
+    # Enrich sub-points with parent context
+    # We propagate the parent's first sentence (from the last numeric bullet) to its letter/roman children.
+    def build_enriched_subpoints_esrs(parts):
+        enriched = []
+        last_parent_sentence = None
+        last_parent_label = None
+        for p in parts:
+            if not p['is_subpoint']:
+                continue
+            if p['subtype'] == 'numeric':
+                # Track numeric parent and keep numeric as a sub-point with its enumeration
+                last_parent_label = _extract_numeric_label(p['text']) or last_parent_label
+                rest = _strip_enum_prefix(p['text'])
+                last_parent_sentence = _first_sentence(rest)
+                if last_parent_label:
+                    enriched.append(f"{last_parent_label}. {rest}".strip())
+                else:
+                    enriched.append(p['text'])
+            elif p['subtype'] in ('letter', 'roman'):
+                # Prefix child with numeric parent enumeration and include parent sentence as context
+                child = _extract_child_label(p['text'], p['subtype'])
+                rest = _strip_enum_prefix(p['text'])
+                if last_parent_label and child:
+                    enum = f"{last_parent_label}({child})."
+                    context = f"{last_parent_sentence} " if last_parent_sentence else ""
+                    enriched.append(f"{enum} {context}{rest}".strip())
+                else:
+                    enriched.append(p['text'])
+            else:
+                enriched.append(p['text'])
+        return enriched
+
+    def build_enriched_subpoints_gri(parts):
+        """
+        GRI specifics:
+        - No numeric parent; subpoints start at a., b., c. (or a), i), etc.).
+        - Preserve/normalize enumeration prefixes.
+        - Trim subpoint text to the first real sentence (ignore e.g., i.e., etc., and decimals).
+        - Cut at section-like references such as '2.5' typical for structured lists.
+        - For roman subpoints, prepend the parent letter's first sentence and show combined enumeration (e.g., a-i.).
+        """
+        new_result = []
+        trimmed = []
+        toc_ref_pattern = re.compile(r'(?<![\w])\d+(?:\.\d+)+(?:\s|\.{2,})')
+
+        last_letter_sentence = None  # cache parent's first sentence
+        last_letter_token = None     # cache parent's enumeration token (e.g., 'a')
+
+        for p in parts:
+            if not p['is_subpoint']:
+                continue
+
+            # Capture enumeration prefix and the remainder
+            m = re.match(r'^\s*(((?:\(?[ivx]+\)?|[a-z])[.)]))\s+(.*)', p['text'], flags=re.IGNORECASE)
+            if m:
+                enum_prefix = m.group(1)   # e.g., 'a.', 'a)', 'ii.', '(ii)'
+                rest = m.group(3)
+                raw_token = enum_prefix[:-1].strip().lower().strip('()')  # token without trailing '.' or ')' and parens
             else:
                 enum_prefix = ""
-                rest = sp
-            period_idx = rest.find('.')
-            if period_idx != -1:
-                rest = rest[:period_idx + 1]
-            truncated = (enum_prefix + ' ' + rest).strip() if enum_prefix else rest.strip()
-            trimmed_sub_points.append(truncated)
-            new_result_parts.append(truncated)
-        sub_points = trimmed_sub_points
-        result_parts = new_result_parts
+                rest = p['text']
+                raw_token = ""
 
-    return " ".join(result_parts).strip(), sub_points
+            # Cut before section-like references (e.g., "2.5 ..." or "2.5....")
+            mref = toc_ref_pattern.search(rest)
+            if mref:
+                rest = rest[:mref.start()].rstrip()
+
+            # Decide if this is a letter-parent or roman-child
+            roman_chars = set('ivx')
+            is_letter = bool(raw_token) and any(c not in roman_chars for c in raw_token)
+            if not is_letter and raw_token in roman_chars:
+                if len(raw_token) >= 2:
+                    is_letter = False  # 'ii', 'iv', etc. => roman
+                else:
+                    is_letter = last_letter_sentence is None  # lone 'i': treat as letter only if no parent yet
+
+            if is_letter:
+                # Normalize enumeration to 'a.' and store parent context
+                first_sent_parent = _first_sentence_smart(rest)
+                last_letter_sentence = first_sent_parent
+                last_letter_token = raw_token if raw_token else last_letter_token
+                enum_norm = f"{last_letter_token}." if last_letter_token else enum_prefix
+                combined = f"{enum_norm} {first_sent_parent}".strip()
+                new_result.append(combined)
+                trimmed.append(combined)
+            else:
+                # Roman child: include parent sentence and show combined enumeration like 'a-i.'
+                first_sent_child = _first_sentence_smart(rest)
+                combined_text = f"{last_letter_sentence} {first_sent_child}".strip() if last_letter_sentence else first_sent_child
+                if last_letter_token and raw_token:
+                    enum_combined = f"{last_letter_token}-{raw_token}."
+                else:
+                    # Fallback to normalized child enum if parent token missing
+                    enum_combined = f"{raw_token}." if raw_token else enum_prefix
+                combined = f"{enum_combined} {combined_text}".strip()
+                new_result.append(combined)
+                trimmed.append(combined)
+
+        return new_result, trimmed
+
+    if standard_type == 'esrs':
+        sub_points = build_enriched_subpoints_esrs(parts_meta)
+        # Keep the original result_parts for ESRS (including main description), but we already enriched sub_points.
+        full_text_out = " ".join(result_parts).strip()
+        return full_text_out, sub_points
+
+    # GRI: Only use sub-points in output; preserve enumeration; smart-trim first sentence
+    result_parts_gri, sub_points_gri = build_enriched_subpoints_gri(parts_meta)
+    return " ".join(result_parts_gri).strip(), sub_points_gri
 
 
 # ------------------------------------------------------------------
