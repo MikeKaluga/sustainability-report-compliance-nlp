@@ -362,6 +362,8 @@ def _process_esrs_segment(segment: str):
     ESRS-specific segment processing wrapper.
     Internally calls the core processor with 'esrs'.
     """
+    # Remove inline amendment notices like "(22 amended)", "(4, 5 amended)", "(30-31 amended)"
+    segment = _remove_esrs_amended_notices(segment)
     return _process_segment_core(segment, 'esrs')
 
 
@@ -370,19 +372,26 @@ def _process_gri_segment(segment: str):
     GRI-specific segment processing wrapper.
     Internally calls the core processor with 'gri'.
     """
-    # Robustly detect "guidance" (case-insensitive, tolerant to punctuation/whitespace/newlines)
-    m = re.search(r'\bguidance\b', segment, flags=re.IGNORECASE)
-    if m:
-        before_guidance = segment[:m.start()]
-        # Keep only up to and including the last period before GUIDANCE
-        last_period_index = before_guidance.rfind('.')
-        if last_period_index != -1:
-            segment = before_guidance[:last_period_index + 1]
-        else:
-            # If no period before GUIDANCE, keep only the text before GUIDANCE
-            segment = before_guidance.strip()
-
     return _process_segment_core(segment, 'gri')
+
+
+def _remove_esrs_amended_notices(text: str) -> str:
+    """
+    Removes ESRS inline amendment notices such as:
+    - (22 amended)
+    - (4, 5 amended)
+    - (30-31 amended)
+    Case-insensitive, tolerant to various hyphen/dash characters and spacing.
+    """
+    pattern = re.compile(
+        r'\(\s*\d+(?:\s*(?:[-–—−]\s*\d+|\s*,\s*\d+))*\s+amended\s*\)',
+        flags=re.IGNORECASE
+    )
+    cleaned = pattern.sub('', text)
+    # Collapse whitespace that may result from removal
+    cleaned = re.sub(r'[ \t]{2,}', ' ', cleaned)
+    cleaned = re.sub(r'\s+\n', '\n', cleaned)
+    return cleaned.strip()
 
 
 def _process_segment_core(segment, standard_type):
