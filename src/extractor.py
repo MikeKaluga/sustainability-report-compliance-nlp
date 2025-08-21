@@ -372,6 +372,10 @@ def _process_gri_segment(segment: str):
     GRI-specific segment processing wrapper.
     Internally calls the core processor with 'gri'.
     """
+    # Trim everything starting from "Compilation requirements" (irrelevant for matching)
+    m = re.search(r'Compilation\s+requirements', segment, flags=re.IGNORECASE)
+    if m:
+        segment = segment[:m.start()].rstrip()
     return _process_segment_core(segment, 'gri')
 
 
@@ -609,13 +613,14 @@ def _process_segment_core(segment, standard_type):
         - Trim subpoint text to the first real sentence (ignore e.g., i.e., etc., and decimals).
         - Cut at section-like references such as '2.5' typical for structured lists.
         - For roman subpoints, prepend the parent letter's first sentence and show combined enumeration (e.g., a-i.).
+        - IMPORTANT: Do not emit a standalone letter (e.g., 'a.') when roman children (i., ii., ...) exist.
         """
         new_result = []
         trimmed = []
         toc_ref_pattern = re.compile(r'(?<![\w])\d+(?:\.\d+)+(?:\s|\.{2,})')
 
-        last_letter_sentence = None  # cache parent's first sentence
-        last_letter_token = None     # cache parent's enumeration token (e.g., 'a')
+        # Pending letter subpoint state; flushed only if it has no roman children
+        pending = None  # {'first_sent_parent': str, 'token': str, 'enum_norm': str, 'has_child': bool}
 
         for p in parts:
             if not p['is_subpoint']:
@@ -637,36 +642,49 @@ def _process_segment_core(segment, standard_type):
             if mref:
                 rest = rest[:mref.start()].rstrip()
 
-            # Decide if this is a letter-parent or roman-child
             roman_chars = set('ivx')
             is_letter = bool(raw_token) and any(c not in roman_chars for c in raw_token)
             if not is_letter and raw_token in roman_chars:
+                # 'i' could be letter only if no parent yet, otherwise roman
                 if len(raw_token) >= 2:
-                    is_letter = False  # 'ii', 'iv', etc. => roman
+                    is_letter = False
                 else:
-                    is_letter = last_letter_sentence is None  # lone 'i': treat as letter only if no parent yet
+                    is_letter = False  # treat single 'i' as roman when a letter context is possible
 
             if is_letter:
-                # Normalize enumeration to 'a.' and store parent context
+                # Flush previous pending letter if it had no children
+                if pending and not pending['has_child']:
+                    combined = f"{pending['enum_norm']} {pending['first_sent_parent']}".strip()
+                    new_result.append(combined)
+                    trimmed.append(combined)
+                # Start new pending letter
                 first_sent_parent = _first_sentence_smart(rest)
-                last_letter_sentence = first_sent_parent
-                last_letter_token = raw_token if raw_token else last_letter_token
-                enum_norm = f"{last_letter_token}." if last_letter_token else enum_prefix
-                combined = f"{enum_norm} {first_sent_parent}".strip()
-                new_result.append(combined)
-                trimmed.append(combined)
+                enum_norm = f"{raw_token}." if raw_token else enum_prefix
+                pending = {
+                    'first_sent_parent': first_sent_parent,
+                    'token': raw_token,
+                    'enum_norm': enum_norm,
+                    'has_child': False
+                }
             else:
-                # Roman child: include parent sentence and show combined enumeration like 'a-i.'
+                # Roman child: include parent sentence and combined enumeration like 'a-i.'
                 first_sent_child = _first_sentence_smart(rest)
-                combined_text = f"{last_letter_sentence} {first_sent_child}".strip() if last_letter_sentence else first_sent_child
-                if last_letter_token and raw_token:
-                    enum_combined = f"{last_letter_token}-{raw_token}."
+                if pending:
+                    pending['has_child'] = True
+                    enum_combined = f"{pending['token']}-{raw_token}." if pending['token'] and raw_token else f"{raw_token}."
+                    combined_text = f"{pending['first_sent_parent']} {first_sent_child}".strip()
                 else:
-                    # Fallback to normalized child enum if parent token missing
                     enum_combined = f"{raw_token}." if raw_token else enum_prefix
+                    combined_text = first_sent_child
                 combined = f"{enum_combined} {combined_text}".strip()
                 new_result.append(combined)
                 trimmed.append(combined)
+
+        # After loop: if a letter was pending without children, emit it
+        if pending and not pending['has_child']:
+            combined = f"{pending['enum_norm']} {pending['first_sent_parent']}".strip()
+            new_result.append(combined)
+            trimmed.append(combined)
 
         return new_result, trimmed
 
