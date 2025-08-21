@@ -321,12 +321,22 @@ def export_llm_analysis(app):
                         break
 
             if not match_list:
-                analysis_results.append({'Requirement Code': req_code, 'Requirement Text': req_text, 'LLM Analysis': 'No matches found.'})
+                analysis_results.append({
+                    'Requirement Code': req_code,
+                    'Requirement Text': req_text,
+                    'Matched Report Paragraphs': '',
+                    'LLM Analysis': 'No matches found.'
+                })
                 continue
 
             paragraphs = [app.report_paras[idx] for idx, _ in match_list]
             llm_response = get_llm_analysis(req_text, paragraphs)
-            analysis_results.append({'Requirement Code': req_code, 'Requirement Text': req_text, 'LLM Analysis': llm_response})
+            analysis_results.append({
+                'Requirement Code': req_code,
+                'Requirement Text': req_text,
+                'Matched Report Paragraphs': "\n\n".join(paragraphs),
+                'LLM Analysis': llm_response
+            })
     else:
         # Old format fallback
         req_codes = list(app.requirements_data.keys())
@@ -347,12 +357,22 @@ def export_llm_analysis(app):
             progress_win.update()
 
             if not match_list:
-                analysis_results.append({'Requirement Code': req_codes[i], 'Requirement Text': req_texts[i], 'LLM Analysis': 'No matches found.'})
+                analysis_results.append({
+                    'Requirement Code': req_codes[i],
+                    'Requirement Text': req_texts[i],
+                    'Matched Report Paragraphs': '',
+                    'LLM Analysis': 'No matches found.'
+                })
                 continue
 
             paragraphs = [app.report_paras[idx] for idx, _ in match_list]
             llm_response = get_llm_analysis(req_texts[i], paragraphs)
-            analysis_results.append({'Requirement Code': req_codes[i], 'Requirement Text': req_texts[i], 'LLM Analysis': llm_response})
+            analysis_results.append({
+                'Requirement Code': req_codes[i],
+                'Requirement Text': req_texts[i],
+                'Matched Report Paragraphs': "\n\n".join(paragraphs),
+                'LLM Analysis': llm_response
+            })
 
     try:
         if not app._cancel_analysis:
