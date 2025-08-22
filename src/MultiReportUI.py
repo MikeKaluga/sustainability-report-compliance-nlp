@@ -532,25 +532,5 @@ class MultiReportApp(tk.Tk):
 
 
 if __name__ == '__main__':
-    from translations import TRANSLATIONS
-    # Add minimal extra keys if missing
-    TRANSLATIONS['en'].update({
-        'multi_report_app_title': 'Multi-Report Compliance Analyzer',
-        'select_reports': '2. Select Reports',
-        'reports': 'Reports',
-        'reports_ready_multi': '{count} reports selected. Ready.',
-    'parse_reports': '3. Parse Reports',
-    'parsing_report': 'Parsing report {current}/{total}: {name}...',
-    'reports_parsed_status': '{count} reports parsed.',
-    })
-    TRANSLATIONS['de'].update({
-        'multi_report_app_title': 'Multi-Bericht Compliance-Analysator',
-        'select_reports': '2. Berichte auswählen',
-        'reports': 'Berichte',
-        'reports_ready_multi': '{count} Berichte ausgewählt. Bereit.',
-    'parse_reports': '3. Berichte parsen',
-    'parsing_report': 'Bericht wird verarbeitet {current}/{total}: {name}...',
-    'reports_parsed_status': '{count} Berichte geparst.',
-    })
     app = MultiReportApp()
     app.mainloop()

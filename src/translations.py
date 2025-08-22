@@ -17,9 +17,9 @@ Usage:
 TRANSLATIONS = {
     "en": {
         "app_title": "Sustainability Report Compliance Checker",
-        "select_standard": "1. Select Standard PDF",
-        "select_report": "2. Select Report PDF",
-        "run_matching": "3. Run Matching",
+        "select_standard": "Select Standard PDF",
+        "select_report": "Select Report PDF",
+        "run_matching": "Run Matching",
         "export_llm_analysis": "Export LLM Analysis",
         "analyze_with_llm": "Analyze with LLM",
         "initial_status": "Please select a standard PDF.",
@@ -87,13 +87,22 @@ TRANSLATIONS = {
         "about_title": "About the app for investigating the compliance of sustainability reports with reporting standards using NLP methods",
         "about_text": "This application was developed as part of a bachelor's thesis to analyze the compliance of sustainability reports with established standards (such as GRI and ESRS) using NLP methods.",
         "about_version": "Version: 1.3",
-        "about_author": "Author: Mihail Savvateev"
+        "about_author": "Author: Mihail Savvateev",
+
+        # --- For The Multiple Report UI ---
+        "multi_report_app_title": "Multi-Report Compliance Analyzer",
+        "select_reports": "Select Reports",
+        "reports": "Reports",
+        "reports_ready_multi": "{count} reports selected. Ready.",
+        "parse_reports": "Parse Reports",
+        "parsing_report": "Parsing report {current}/{total}: {name}...",
+        "reports_parsed_status": '{count} reports parsed.',
     },
     "de": {
         "app_title": "Untersuchung der Übereinstimmung von Nachhaltigkeitsberichten",
-        "select_standard": "1. Standard-PDF auswählen",
-        "select_report": "2. Bericht-PDF auswählen",
-        "run_matching": "3. Übereinstimmung prüfen",
+        "select_standard": "Standard-PDF auswählen",
+        "select_report": "Bericht-PDF auswählen",
+        "run_matching": "Übereinstimmung prüfen",
         "export_llm_analysis": "LLM-Analyse exportieren",
         "analyze_with_llm": "Analysieren mit LLM",
         "initial_status": "Bitte eine Standard-PDF auswählen.",
@@ -161,7 +170,16 @@ TRANSLATIONS = {
         "about_title": "Über die App zur Untersuchung der Übereinstimmung von Nachhaltigkeitsberichten mit Berichtsstandards unter Verwendung von NLP-Methoden",
         "about_text": "Diese Anwendung wurde im Rahmen einer Bachelorarbeit entwickelt, um die Einhaltung von Nachhaltigkeitsberichten mit etablierten Standards (wie GRI und ESRS) mithilfe von NLP-Methoden zu analysieren.",
         "about_version": "Version: 1.3",
-        "about_author": "Autor: Mihail Savvateev"
+        "about_author": "Autor: Mihail Savvateev",
+
+        # --- Für das Multi Report UI ---
+        "multi_report_app_title": "Multi-Bericht Compliance-Analysator",
+        "select_reports": "Berichte auswählen",
+        "reports": "Berichte",
+        "reports_ready_multi": "{count} Berichte ausgewählt. Bereit.",
+        "parse_reports": "Berichte parsen",
+        "parsing_report": "Bericht wird verarbeitet {current}/{total}: {name}...",
+        "reports_parsed_status": "{count} Berichte geparst.",
     },
 }
 
