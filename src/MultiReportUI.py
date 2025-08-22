@@ -56,6 +56,100 @@ class MultiReportApp(tk.Tk):
         self._create_menu()
         self._create_layout()
 
+        # Compatibility aliases for language_manager (single-report naming)
+        # language_manager.update_ui_texts expects these attributes
+        self.select_report_btn = self.add_reports_btn
+        self.parse_btn = self.parse_reports_btn
+        self.subpoint_container = self.sub_point_container
+        # Alias for single-report's selected report path
+        self.report_pdf_path = self.current_report_path
+
+    def update_ui_texts(self):
+        """Update all UI widgets with translated text after language switch."""
+        # Window title
+        title = translate("multi_report_app_title")
+        if title == "multi_report_app_title":
+            title = translate("app_title") + " (Multi)"
+        self.title(title)
+
+        # Cascades (indices based on creation order)
+        try:
+            exp_label = translate("export")
+            if exp_label == "export":
+                exp_label = "Export"
+            self.menu_bar.entryconfig(0, label=exp_label)   # Export
+            self.menu_bar.entryconfig(1, label="FAQ")       # Keep 'FAQ' label simple
+            self.menu_bar.entryconfig(2, label="DE/EN")
+        except Exception:
+            pass
+
+        # Export submenu items (indices depend on configure_export_menu)
+        try:
+            self.export_menu.entryconfig(0, label=translate("export_requirements"))
+            self.export_menu.entryconfig(1, label=translate("export_paragraphs"))
+            self.export_menu.entryconfig(2, label=translate("export_matches"))
+            self.export_menu.entryconfig(3, label=translate("export_llm_analysis"))
+        except Exception:
+            pass
+
+        # Buttons
+        self.select_standard_btn.config(text=translate("select_standard"))
+        reports_text = translate("select_reports")
+        if reports_text == "select_reports":
+            reports_text = "Select Reports"
+        self.add_reports_btn.config(text=reports_text)
+        parse_text = translate("parse_reports")
+        if parse_text == "parse_reports":
+            parse_text = "Parse Reports"
+        self.parse_reports_btn.config(text=parse_text)
+        self.run_match_btn.config(text=translate("run_matching"))
+        self.export_llm_btn.config(text=translate("export_llm_analysis"))
+        self.analyze_llm_btn.config(text=translate("analyze_with_llm"))
+
+        # Frames / labels
+        self.list_container.config(text=translate("requirements_from_standard"))
+        self.sub_point_container.config(text=translate("sub_points"))
+        self.text_container.config(text=translate("requirement_text_and_matches"))
+        reports_label = translate("reports")
+        if reports_label == "reports":
+            reports_label = "Reports"
+        # Update the LabelFrame holding the report list
+        try:
+            self.report_listbox.master.config(text=reports_label)
+        except Exception:
+            pass
+
+    def _validate_state_for_operation(self, operation):
+        """Validate application state before performing operations."""
+        warn = translate("warning") if translate("warning") != "warning" else "Warning"
+        if operation == "select_reports" and not self.standard_pdf_path:
+            messagebox.showwarning(warn, translate("select_standard_first") if translate("select_standard_first") != "select_standard_first" else "Please select a standard PDF first.")
+            return False
+        if operation == "parse_reports" and not self.reports:
+            messagebox.showwarning(warn, translate("select_reports_first") if translate("select_reports_first") != "select_reports_first" else "Please select reports first.")
+            return False
+        if operation == "matching" and not any(data['paras'] for data in self.reports.values()):
+            messagebox.showwarning(warn, translate("parse_reports_first") if translate("parse_reports_first") != "parse_reports_first" else "Please parse reports first.")
+            return False
+        return True
+
+    def _update_progress_status(self, message, progress=None):
+        """Update status with optional progress indicator."""
+        if progress is not None:
+            try:
+                message = f"{message} ({int(progress)}%)"
+            except Exception:
+                pass
+        self.status_label.config(text=message)
+        self.update_idletasks()
+
+    def _cleanup_large_data(self):
+        """Clean up large data structures to free memory."""
+        for data in self.reports.values():
+            # If matching was completed, embeddings are no longer needed
+            if data.get('matches') and data.get('emb') is not None:
+                data['emb'] = None
+
     # ---------------- UI Construction -----------------
     def _create_menu(self):
         self.menu_bar = tk.Menu(self)
@@ -64,7 +158,11 @@ class MultiReportApp(tk.Tk):
         # Export menu (reused; state updated based on selected report)
         self.export_menu = tk.Menu(self.menu_bar, tearoff=0)
         configure_export_menu(self, self.export_menu)
-        self.menu_bar.add_cascade(label="Export", menu=self.export_menu)
+        # Use translated cascade label
+        exp_label = translate("export")
+        if exp_label == "export":
+            exp_label = "Export"
+        self.menu_bar.add_cascade(label=exp_label, menu=self.export_menu)
 
         # FAQ
         from help_info import show_help, show_about
@@ -170,15 +268,28 @@ class MultiReportApp(tk.Tk):
 
     # ---------------- Actions -----------------
     def _select_standard_file(self):
+        # ...existing code before dialog...
         path = filedialog.askopenfilename(title=translate("select_standard"), filetypes=[("PDF", "*.pdf")])
         if not path:
             return
+        # Validate file accessibility
+        try:
+            if not os.path.exists(path) or not os.access(path, os.R_OK):
+                messagebox.showerror(translate("error") if translate("error") != "error" else "Error", "File not accessible.")
+                return
+        except Exception as e:
+            messagebox.showerror(translate("error") if translate("error") != "error" else "Error", f"File validation error: {str(e)}")
+            return
+
         self.standard_pdf_path = path
-        self.status_label.config(text=translate("extracting_requirements"))
-        self.update_idletasks()
+        self._update_progress_status(translate("extracting_requirements"))
         try:
             self.requirements_data = extract_requirements_from_standard_pdf(path)
             self.detected_standard = detect_standard_from_pdf(path)
+            if not self.requirements_data:
+                messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
+                                       translate("no_requirements_found") if translate("no_requirements_found") != "no_requirements_found" else "No requirements found in the PDF.")
+                return
             # Populate requirements list
             self.req_listbox.delete(0, tk.END)
             for code in self.requirements_data.keys():
@@ -190,130 +301,145 @@ class MultiReportApp(tk.Tk):
                     standard_texts_for_embedding.extend([sp.strip() for sp in req_data['sub_points']])
                 else:
                     standard_texts_for_embedding.append(req_data['full_text'].strip())
-            self.standard_emb = self.embedder.encode(standard_texts_for_embedding)
+            if standard_texts_for_embedding:
+                self.standard_emb = self.embedder.encode(standard_texts_for_embedding)
+            else:
+                messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
+                                       translate("no_text_for_embedding") if translate("no_text_for_embedding") != "no_text_for_embedding" else "No text found for embedding.")
+                return
             self.status_label.config(text=f"{len(self.requirements_data)} {translate('reqs_loaded')} {translate('standard_detected', standard=self.detected_standard or 'UNKNOWN')}")
             self.add_reports_btn.config(state=tk.NORMAL)
             self.export_menu.entryconfig(0, state=tk.NORMAL)
         except Exception as e:
             messagebox.showerror(translate("error_processing_standard"), str(e))
             self.status_label.config(text=translate("error_try_again"))
+            # Reset state on error
+            self.standard_pdf_path = None
+            self.requirements_data = {}
+            self.standard_emb = None
 
     def _select_reports(self):
-        paths = filedialog.askopenfilenames(title=translate("select_reports") if translate("select_reports") != "select_reports" else "Select Reports", filetypes=[("PDF", "*.pdf")])
+        # Ensure standard chosen (button is disabled before, but double-check)
+        if not self._validate_state_for_operation("select_reports"):
+            return
+        paths = filedialog.askopenfilenames(
+            title=translate("select_reports") if translate("select_reports") != "select_reports" else "Select Reports",
+            filetypes=[("PDF", "*.pdf")]
+        )
         if not paths:
             return
+        # Validate all files before adding
+        invalid_files = []
+        for p in paths:
+            try:
+                if not os.path.exists(p) or not os.access(p, os.R_OK):
+                    invalid_files.append(os.path.basename(p))
+            except Exception:
+                invalid_files.append(os.path.basename(p))
+        if invalid_files:
+            messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
+                                   f"Invalid files: {', '.join(invalid_files)}")
+            paths = [p for p in paths if os.path.basename(p) not in invalid_files]
+            if not paths:
+                return
         new_paths = [p for p in paths if p not in self.reports]
         for p in new_paths:
             self.reports[p] = {'paras': [], 'emb': None, 'matches': None}
             self.report_listbox.insert(tk.END, os.path.basename(p))
         if self.reports and not self.current_report_path:
-            # select first automatically
             self.report_listbox.select_set(0)
             self.current_report_path = list(self.reports.keys())[0]
-        # Enable parse button (explicit step before matching)
+            # Keep alias in sync for language_manager
+            self.report_pdf_path = self.current_report_path
         self.parse_reports_btn.config(state=tk.NORMAL)
         self.run_match_btn.config(state=tk.DISABLED)
         self.status_label.config(text=translate("reports_ready_multi", count=len(self.reports)) if translate("reports_ready_multi", count=0) != "reports_ready_multi" else f"{len(self.reports)} reports selected.")
         self.export_menu.entryconfig(1, state=tk.DISABLED)  # paragraphs export until parsing done
 
     def _parse_reports(self):
+        if not self._validate_state_for_operation("parse_reports"):
+            return
         if not self.reports:
             return
         total = len(self.reports)
-        parsed_any = False
+        parsed_count = 0
         for i, (path, data) in enumerate(self.reports.items(), start=1):
             if data['paras']:
-                continue  # already parsed
+                parsed_count += 1
+                continue
             prog_txt = translate('parsing_report', current=i, total=total, name=os.path.basename(path))
             if prog_txt == 'parsing_report':
                 prog_txt = f"Parsing report {i}/{total}: {os.path.basename(path)}"
-            self.status_label.config(text=prog_txt)
-            self.update_idletasks()
+            self._update_progress_status(prog_txt, int((i - 1) / total * 100))
             try:
                 data['paras'] = extract_paragraphs_from_pdf(path)
                 if data['paras']:
                     data['emb'] = self.embedder.encode(data['paras'])
-                    parsed_any = True
+                    parsed_count += 1
                 else:
                     print(f"No paragraphs extracted from {path}")
             except Exception as e:
                 print(f"Error parsing {path}: {e}")
-        if parsed_any:
-            self.status_label.config(text=translate('reports_parsed_status', count=sum(1 for d in self.reports.values() if d['paras'])) if translate('reports_parsed_status', count=0) != 'reports_parsed_status' else 'Reports parsed.')
+                messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
+                                       f"Failed to parse: {os.path.basename(path)}")
+        if parsed_count:
+            self.status_label.config(text=translate('reports_parsed_status', count=parsed_count) if translate('reports_parsed_status', count=0) != 'reports_parsed_status' else f'{parsed_count} reports parsed.')
             self.parse_reports_btn.config(state=tk.NORMAL)
             self.run_match_btn.config(state=tk.NORMAL)
             self.export_menu.entryconfig(1, state=tk.NORMAL)  # paragraphs export
         else:
             self.status_label.config(text=translate('no_paras_to_export'))
+            messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
+                                   translate('no_paras_to_export'))
 
     def _run_all_matching(self):
-        # Ensure embeddings for standard are ready
-        if self.standard_emb is None:
+        if not self._validate_state_for_operation("matching"):
             return
-        self.status_label.config(text=translate("performing_matching"))
-        self.update_idletasks()
-        # Prepare standard texts order identical to embedding order
+        if self.standard_emb is None:
+            messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
+                                   translate("standard_embeddings_not_ready") if translate("standard_embeddings_not_ready") != "standard_embeddings_not_ready" else "Standard embeddings not ready.")
+            return
+        self._update_progress_status(translate("performing_matching"))
+        # Prepare standard texts in the same order as embedding
         standard_texts = []
         for req in self.requirements_data.values():
             if req['sub_points']:
                 standard_texts.extend([sp.strip() for sp in req['sub_points']])
             else:
                 standard_texts.append(req['full_text'].strip())
-        total_reports = len(self.reports)
-        for i, (path, data) in enumerate(self.reports.items(), start=1):
-            # Status headline
-            base_status = translate('processing_report', current=i, total=total_reports, name=os.path.basename(path))
-            if base_status == 'processing_report':  # fallback if key missing
-                base_status = f"Processing report {i}/{total_reports}: {os.path.basename(path)}"
-            self.status_label.config(text=base_status)
-            self.update_idletasks()
-            # Ensure parsed (fallback if user skipped parse step)
-            if not data['paras']:
-                try:
-                    data['paras'] = extract_paragraphs_from_pdf(path)
-                    if data['paras']:
-                        data['emb'] = self.embedder.encode(data['paras'])
-                except Exception as e:
-                    print(f"Error parsing (fallback) {path}: {e}")
+        total_reports = sum(1 for d in self.reports.values() if d['paras'])
+        if total_reports == 0:
+            messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
+                                   translate("no_parsed_reports") if translate("no_parsed_reports") != "no_parsed_reports" else "No parsed reports available for matching.")
+            return
+        processed = 0
+        for path, data in self.reports.items():
             if not data['paras'] or data['emb'] is None:
-                print(f"Skipping {path}: not parsed / no embeddings")
                 continue
-            if data['emb'] is None:
-                print(f"Skipping matching for {path} (no embeddings)")
-                continue
-            all_matches = match_requirements_to_report(self.standard_emb, data['emb'], top_k=5)
-            text_matches = {text: all_matches[idx] for idx, text in enumerate(standard_texts) if idx < len(all_matches)}
-            data['matches'] = text_matches
-            # Per-report completion status
-            done_status = translate('report_ready') if translate('report_ready') != 'report_ready' else 'Parsed'
-            self.status_label.config(text=f"{done_status}: {os.path.basename(path)} ({len(data['paras'])} paras)")
-            self.update_idletasks()
-        # Project current report
-        if self.current_report_path and self.reports[self.current_report_path]['matches']:
+            processed += 1
+            base_status = translate('processing_report', current=processed, total=total_reports, name=os.path.basename(path))
+            if base_status == 'processing_report':
+                base_status = f"Processing report {processed}/{total_reports}: {os.path.basename(path)}"
+            self._update_progress_status(base_status, int(processed / total_reports * 100))
+            try:
+                all_matches = match_requirements_to_report(self.standard_emb, data['emb'], top_k=5)
+                text_matches = {text: all_matches[idx] for idx, text in enumerate(standard_texts) if idx < len(all_matches)}
+                data['matches'] = text_matches
+                # Free memory after matching
+                data['emb'] = None
+            except Exception as e:
+                print(f"Error matching {path}: {e}")
+                messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
+                                       f"Matching failed for: {os.path.basename(path)}")
+        if self.current_report_path and self.reports[self.current_report_path].get('matches'):
             self._project_current_report(self.current_report_path)
         self.status_label.config(text=translate("matching_completed_label"))
         self.export_menu.entryconfig(2, state=tk.NORMAL)  # matches export
         self.export_llm_btn.config(state=tk.NORMAL)
         self.analyze_llm_btn.config(state=tk.NORMAL)
-        self.export_menu.entryconfig(1, state=tk.NORMAL)  # paragraphs export now available
-        message = translate("matching_completed") if translate("matching_completed") != 'matching_completed' else 'Matching completed.'
-        messagebox.showinfo(translate("completed"), message)
-
-    def _project_current_report(self, report_path):
-        data = self.reports.get(report_path)
-        if not data:
-            return
-        self.report_paras = data['paras']
-        self.matches = data['matches']
-        # Update current report label
-        base = os.path.basename(report_path)
-        para_info = f"{len(self.report_paras)} paras" if self.report_paras else "no paragraphs"
-        match_info = f"{len(self.matches)} texts matched" if self.matches else "no matches yet"
-        label_txt = f"Active report: {base}  |  {para_info}  |  {match_info}"
-        self.current_report_label.config(text=label_txt)
-        # If matches missing, disable LLM button
-        if not self.matches:
-            self.analyze_llm_btn.config(state=tk.DISABLED)
+        self.export_menu.entryconfig(1, state=tk.NORMAL)
+        done_msg = translate("matching_completed") if translate("matching_completed") != 'matching_completed' else 'Matching completed.'
+        messagebox.showinfo(translate("completed"), done_msg)
 
     # ---------------- Selection Handlers -----------------
     def _on_report_select(self, event):
@@ -372,13 +498,42 @@ class MultiReportApp(tk.Tk):
         run_llm_analysis(self, self.current_req_code, self.requirements_data, self.matches, self.report_paras, self.status_label, self.update_idletasks, translate, selected_sub_point=selected_sub_point)
 
     def _export_llm_all_reports(self):
-        # Iterate each report, run LLM analysis per requirement/sub-point not yet analyzed; then aggregate into CSV via exporter.
-        from exporter import export_llm_analysis as export_llm_analysis_func
-        # Export only for currently projected report (consistent with single-report exporter) – instruct user.
+        # Export only for currently projected report (consistent with single-report exporter)
         if not self.current_report_path:
             messagebox.showwarning(translate("no_data"), translate("no_paras_to_export"))
             return
-        export_llm_analysis_func(self)
+        try:
+            from exporter import export_llm_analysis as export_llm_analysis_func
+            export_llm_analysis_func(self)
+        except Exception as e:
+            messagebox.showerror(translate("error") if translate("error") != "error" else "Error",
+                                 f"Export failed: {str(e)}")
+
+    def destroy(self):
+        """Clean up resources before closing."""
+        try:
+            self._cleanup_large_data()
+        except Exception:
+            pass
+        super().destroy()
+
+    # Project current report state into single-report compatible fields
+    def _project_current_report(self, report_path):
+        data = self.reports.get(report_path)
+        if not data:
+            return
+        self.report_paras = data.get('paras', [])
+        self.matches = data.get('matches')
+        # Keep alias in sync for language_manager
+        self.report_pdf_path = report_path
+        # Update current report label
+        base = os.path.basename(report_path)
+        para_info = f"{len(self.report_paras)} paras" if self.report_paras else "no paragraphs"
+        match_info = f"{len(self.matches)} texts matched" if self.matches else "no matches yet"
+        self.current_report_label.config(text=f"Active report: {base}  |  {para_info}  |  {match_info}")
+        # Disable LLM button if no matches
+        if not self.matches:
+            self.analyze_llm_btn.config(state=tk.DISABLED)
 
 
 if __name__ == '__main__':
