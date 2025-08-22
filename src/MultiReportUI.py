@@ -29,7 +29,6 @@ from matcher import match_requirements_to_report
 from translations import translate
 from extractor import extract_requirements_from_standard_pdf, detect_standard_from_pdf
 from parser import extract_paragraphs_from_pdf
-from analyze import run_llm_analysis
 from menu_manager import configure_export_menu
 from language_manager import switch_language_and_update_ui
 from event_handlers import handle_requirement_selection
@@ -63,6 +62,12 @@ class MultiReportApp(tk.Tk):
         self.subpoint_container = self.sub_point_container
         # Alias for single-report's selected report path
         self.report_pdf_path = self.current_report_path
+
+        # Provide a no-op placeholder so language_manager can safely call .config(...)
+        class _NoOpWidget:
+            def config(self, *args, **kwargs):  # no-op
+                pass
+        self.analyze_llm_btn = _NoOpWidget()
 
     def update_ui_texts(self):
         """Update all UI widgets with translated text after language switch."""
@@ -104,7 +109,7 @@ class MultiReportApp(tk.Tk):
         self.parse_reports_btn.config(text=parse_text)
         self.run_match_btn.config(text=translate("run_matching"))
         self.export_llm_btn.config(text=translate("export_llm_analysis"))
-        self.analyze_llm_btn.config(text=translate("analyze_with_llm"))
+        # removed: self.analyze_llm_btn.config(text=translate("analyze_with_llm"))
 
         # Frames / labels
         self.list_container.config(text=translate("requirements_from_standard"))
@@ -254,10 +259,6 @@ class MultiReportApp(tk.Tk):
 
         self.text_container = ttk.LabelFrame(bottom_frame, text=translate("requirement_text_and_matches"), padding=5)
         bottom_frame.add(self.text_container, weight=3)
-        action_frame = ttk.Frame(self.text_container)
-        action_frame.pack(fill=tk.X, pady=(0, 5))
-        self.analyze_llm_btn = ttk.Button(action_frame, text=translate("analyze_with_llm"), command=self._run_llm_analysis_current, state=tk.DISABLED)
-        self.analyze_llm_btn.pack(side=tk.RIGHT)
         self.text_display = tk.Text(self.text_container, wrap=tk.WORD, state=tk.DISABLED, font=("Segoe UI", 10))
         self.text_display.pack(fill=tk.BOTH, expand=True)
 
@@ -431,7 +432,7 @@ class MultiReportApp(tk.Tk):
         self.status_label.config(text=translate("matching_completed_label"))
         self.export_menu.entryconfig(2, state=tk.NORMAL)  # matches export
         self.export_llm_btn.config(state=tk.NORMAL)
-        self.analyze_llm_btn.config(state=tk.NORMAL)
+        # removed: self.analyze_llm_btn.config(state=tk.NORMAL)
         self.export_menu.entryconfig(1, state=tk.NORMAL)
         done_msg = translate("matching_completed") if translate("matching_completed") != 'matching_completed' else 'Matching completed.'
         messagebox.showinfo(translate("completed"), done_msg)
@@ -468,7 +469,7 @@ class MultiReportApp(tk.Tk):
         self.text_display.config(state=tk.NORMAL)
         self.text_display.delete(1.0, tk.END)
         self.text_display.config(state=tk.DISABLED)
-        self.analyze_llm_btn.config(state=tk.DISABLED)
+        # removed: self.analyze_llm_btn.config(state=tk.DISABLED)
         if code in self.requirements_data:
             req_data = self.requirements_data[code]
             if req_data['sub_points']:
@@ -484,13 +485,7 @@ class MultiReportApp(tk.Tk):
         handle_requirement_selection(self, event, sub_point_text=sp_text.strip())
 
     # ---------------- LLM Analysis -----------------
-    def _run_llm_analysis_current(self):
-        if not self.current_req_code:
-            return
-        selected_sub_point = None
-        if self.sub_point_listbox.curselection():
-            selected_sub_point = self.sub_point_listbox.get(self.sub_point_listbox.curselection()[0]).strip()
-        run_llm_analysis(self, self.current_req_code, self.requirements_data, self.matches, self.report_paras, self.status_label, self.update_idletasks, translate, selected_sub_point=selected_sub_point)
+    # removed: def _run_llm_analysis_current(self): ...
 
     def _export_llm_all_reports(self):
         # Export only for currently projected report (consistent with single-report exporter)
@@ -526,9 +521,7 @@ class MultiReportApp(tk.Tk):
         para_info = f"{len(self.report_paras)} paras" if self.report_paras else "no paragraphs"
         match_info = f"{len(self.matches)} texts matched" if self.matches else "no matches yet"
         self.current_report_label.config(text=f"Active report: {base}  |  {para_info}  |  {match_info}")
-        # Disable LLM button if no matches
-        if not self.matches:
-            self.analyze_llm_btn.config(state=tk.DISABLED)
+        # removed: toggle analyze_llm_btn state
 
 
 if __name__ == '__main__':
