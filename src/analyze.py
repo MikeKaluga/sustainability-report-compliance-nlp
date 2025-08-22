@@ -111,7 +111,7 @@ def analyze_matches_with_llm(matches, requirements_texts, report_paras):
             enriched_matches.append([])
             continue
 
-        # We only analyze the top match (top_k=1 was used)
+        # Only analyze the top k matches
         top_match = req_matches[0]
         para_idx, sbert_score = top_match
 
@@ -207,7 +207,7 @@ def run_llm_analysis(parent, requirement_code, requirements_data, matches, repor
                     break
 
     elif isinstance(matches, list):
-        # If matches is a list, we need to find the index of requirement_code
+        # If matches is a list, first find the index of requirement_code
         try:
             index = list(requirements_data.keys()).index(requirement_code)
             if index < len(matches):
@@ -279,14 +279,7 @@ Now analyze the following paragraphs from a sustainability report and answer:
 
 Paragraphs:
 {chr(10).join(paragraphs)}
-"""
-    # Print the prompt to terminal for debugging
-    print("=" * 80)
-    print("LLM PROMPT:")
-    print("=" * 80)
-    print(prompt)
-    print("=" * 80)
-    
+"""    
     try:
         status_label.config(text="Querying LLM... Please wait.")
         update_idletasks()

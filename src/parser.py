@@ -118,8 +118,6 @@ def extract_paragraphs_from_pdf(
 
     # Primary paragraph segmentation: split by double line breaks
     raw_paragraphs = re.split(r"\n{2,}", text)
-    if debug:
-        print(f"Primary raw paragraphs: {len(raw_paragraphs)}")
 
     paragraphs = []
 

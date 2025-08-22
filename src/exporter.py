@@ -183,12 +183,6 @@ def export_matches(matches, requirements_data, report_paras, file_type):
     path = _get_save_path(file_type, "matching_results")
     if not path: return
     
-    # Debug: Print the structure of matches and requirements_data
-    print(f"DEBUG: matches type: {type(matches)}")
-    print(f"DEBUG: matches keys (first 3): {list(matches.keys())[:3] if isinstance(matches, dict) else 'Not a dict'}")
-    print(f"DEBUG: requirements_data type: {type(requirements_data)}")
-    print(f"DEBUG: requirements_data keys (first 3): {list(requirements_data.keys())[:3]}")
-    
     export_data = []
     
     # Handle the new matches structure (dict mapping text -> matches)
@@ -246,10 +240,6 @@ def export_matches(matches, requirements_data, report_paras, file_type):
                     'Matched Report Paragraph': report_paras[report_idx],
                     'Score': f"{score:.4f}"
                 })
-    
-    print(f"DEBUG: export_data length: {len(export_data)}")
-    if export_data:
-        print(f"DEBUG: First export entry: {export_data[0]}")
     
     if not export_data:
         messagebox.showwarning(translate("no_data"), "No matching data could be processed for export.")

@@ -169,8 +169,8 @@ def find_requirements(text):
         # Check for table of contents pattern. This can be single or multi-line.
         # A TOC entry is a line ending with '....' and a page number.
         # For multi-line entries, the '....' might be on a subsequent line.
-        
-        # We create a small window of text around the match to check for TOC patterns.
+
+        # Create a small window of text around the match to check for TOC patterns.
         # The window starts at the beginning of the line of the match.
         line_start = text.rfind('\n', 0, m.start()) + 1
         # And ends a bit after the match to catch wrapped lines.
@@ -690,7 +690,7 @@ def _process_segment_core(segment, standard_type):
 
     if standard_type == 'esrs':
         sub_points = build_enriched_subpoints_esrs(parts_meta)
-        # Keep the original result_parts for ESRS (including main description), but we already enriched sub_points.
+        # Keep the original result_parts for ESRS
         full_text_out = " ".join(result_parts).strip()
         return full_text_out, sub_points
 
