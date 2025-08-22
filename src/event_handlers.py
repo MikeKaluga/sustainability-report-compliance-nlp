@@ -19,9 +19,6 @@ def handle_requirement_selection(app, event, sub_point_text=None):
     app.text_display.delete("1.0", "end")
 
 
-    # Default to disabled, enable only if matches are found
-    app.analyze_llm_btn.config(state="disabled")
-
     if req_code in app.requirements_data:
         req_data = app.requirements_data[req_code]
         
@@ -54,7 +51,6 @@ def handle_requirement_selection(app, event, sub_point_text=None):
                     for report_idx, score in match_list:
                         app.text_display.insert("end", f"(Score: {score:.2f})\n", "score")
                         app.text_display.insert("end", f"{app.report_paras[report_idx]}\n\n")
-                    app.analyze_llm_btn.config(state="normal")
                 else:
                     app.text_display.insert("end", translate("no_matches_found"))
             else:

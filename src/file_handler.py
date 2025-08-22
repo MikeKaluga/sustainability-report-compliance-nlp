@@ -92,3 +92,44 @@ def select_report_file(app):
     except Exception as e:
         messagebox.showerror(translate("error_processing_report"), f"An error occurred:\n{e}")
         app.status_label.config(text=translate("error_try_again"))
+
+def select_reports_multi(app):
+    """
+    Opens a dialog to select multiple report PDFs for the multi-report UI,
+    and updates the app's UI and state.
+    Args:
+        app: The main MultiReportApp instance.
+    """
+    if not app._validate_state_for_operation("select_reports"):
+        return
+    paths = filedialog.askopenfilenames(
+        title=translate("select_reports") if translate("select_reports") != "select_reports" else "Select Reports",
+        filetypes=[("PDF", "*.pdf")]
+    )
+    if not paths:
+        return
+    invalid_files = []
+    for p in paths:
+        try:
+            if not os.path.exists(p) or not os.access(p, os.R_OK):
+                invalid_files.append(os.path.basename(p))
+        except Exception:
+            invalid_files.append(os.path.basename(p))
+    if invalid_files:
+        messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
+                               f"Invalid files: {', '.join(invalid_files)}")
+        paths = [p for p in paths if os.path.basename(p) not in invalid_files]
+        if not paths:
+            return
+    new_paths = [p for p in paths if p not in app.reports]
+    for p in new_paths:
+        app.reports[p] = {'paras': [], 'emb': None, 'matches': None}
+        app.report_listbox.insert(tk.END, os.path.basename(p))
+    if app.reports and not app.current_report_path:
+        app.report_listbox.select_set(0)
+        app.current_report_path = list(app.reports.keys())[0]
+        app.report_pdf_path = app.current_report_path
+    app.parse_reports_btn.config(state=tk.NORMAL)
+    app.run_match_btn.config(state=tk.DISABLED)
+    app.status_label.config(text=translate("reports_ready_multi", count=len(app.reports)) if translate("reports_ready_multi", count=0) != "reports_ready_multi" else f"{len(app.reports)} reports selected.")
+    app.export_menu.entryconfig(1, state=tk.DISABLED)

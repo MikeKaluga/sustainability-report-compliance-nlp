@@ -31,6 +31,7 @@ from parser import extract_paragraphs_from_pdf
 from menu_manager import configure_export_menu
 from language_manager import switch_language_and_update_ui
 from event_handlers import handle_requirement_selection
+from file_handler import select_standard_file, select_reports_multi
 
 
 class MultiReportApp(tk.Tk):
@@ -256,93 +257,10 @@ class MultiReportApp(tk.Tk):
 
     # ---------------- Actions -----------------
     def _select_standard_file(self):
-        # ...existing code before dialog...
-        path = filedialog.askopenfilename(title=translate("select_standard"), filetypes=[("PDF", "*.pdf")])
-        if not path:
-            return
-        # Validate file accessibility
-        try:
-            if not os.path.exists(path) or not os.access(path, os.R_OK):
-                messagebox.showerror(translate("error") if translate("error") != "error" else "Error", "File not accessible.")
-                return
-        except Exception as e:
-            messagebox.showerror(translate("error") if translate("error") != "error" else "Error", f"File validation error: {str(e)}")
-            return
-
-        self.standard_pdf_path = path
-        self._update_progress_status(translate("extracting_requirements"))
-        try:
-            self.requirements_data = extract_requirements_from_standard_pdf(path)
-            self.detected_standard = detect_standard_from_pdf(path)
-            if not self.requirements_data:
-                messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
-                                       translate("no_requirements_found") if translate("no_requirements_found") != "no_requirements_found" else "No requirements found in the PDF.")
-                return
-            # Populate requirements list
-            self.req_listbox.delete(0, tk.END)
-            for code in self.requirements_data.keys():
-                self.req_listbox.insert(tk.END, code)
-            # Prepare texts for embedding (sub-points first)
-            standard_texts_for_embedding = []
-            for req_data in self.requirements_data.values():
-                if req_data['sub_points']:
-                    standard_texts_for_embedding.extend([sp.strip() for sp in req_data['sub_points']])
-                else:
-                    standard_texts_for_embedding.append(req_data['full_text'].strip())
-            if standard_texts_for_embedding:
-                self.standard_emb = self.embedder.encode(standard_texts_for_embedding)
-            else:
-                messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
-                                       translate("no_text_for_embedding") if translate("no_text_for_embedding") != "no_text_for_embedding" else "No text found for embedding.")
-                return
-            self.status_label.config(text=f"{len(self.requirements_data)} {translate('reqs_loaded')} {translate('standard_detected', standard=self.detected_standard or 'UNKNOWN')}")
-            self.add_reports_btn.config(state=tk.NORMAL)
-            self.export_menu.entryconfig(0, state=tk.NORMAL)
-        except Exception as e:
-            messagebox.showerror(translate("error_processing_standard"), str(e))
-            self.status_label.config(text=translate("error_try_again"))
-            # Reset state on error
-            self.standard_pdf_path = None
-            self.requirements_data = {}
-            self.standard_emb = None
+        select_standard_file(self)
 
     def _select_reports(self):
-        # Ensure standard chosen (button is disabled before, but double-check)
-        if not self._validate_state_for_operation("select_reports"):
-            return
-        paths = filedialog.askopenfilenames(
-            title=translate("select_reports") if translate("select_reports") != "select_reports" else "Select Reports",
-            filetypes=[("PDF", "*.pdf")]
-        )
-        if not paths:
-            return
-        # Validate all files before adding
-        invalid_files = []
-        for p in paths:
-            try:
-                if not os.path.exists(p) or not os.access(p, os.R_OK):
-                    invalid_files.append(os.path.basename(p))
-            except Exception:
-                invalid_files.append(os.path.basename(p))
-        if invalid_files:
-            messagebox.showwarning(translate("warning") if translate("warning") != "warning" else "Warning",
-                                   f"Invalid files: {', '.join(invalid_files)}")
-            paths = [p for p in paths if os.path.basename(p) not in invalid_files]
-            if not paths:
-                return
-        new_paths = [p for p in paths if p not in self.reports]
-        for p in new_paths:
-            self.reports[p] = {'paras': [], 'emb': None, 'matches': None}
-            self.report_listbox.insert(tk.END, os.path.basename(p))
-        if self.reports and not self.current_report_path:
-            self.report_listbox.select_set(0)
-            self.current_report_path = list(self.reports.keys())[0]
-            # Keep alias in sync for language_manager
-            self.report_pdf_path = self.current_report_path
-        self.parse_reports_btn.config(state=tk.NORMAL)
-        self.run_match_btn.config(state=tk.DISABLED)
-        self.status_label.config(text=translate("reports_ready_multi", count=len(self.reports)) if translate("reports_ready_multi", count=0) != "reports_ready_multi" else f"{len(self.reports)} reports selected.")
-        self.export_menu.entryconfig(1, state=tk.DISABLED)  # paragraphs export until parsing done
+        select_reports_multi(self)
 
     def _parse_reports(self):
         if not self._validate_state_for_operation("parse_reports"):
