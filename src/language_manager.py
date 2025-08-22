@@ -17,7 +17,6 @@ def update_ui_texts(app):
     app.select_report_btn.config(text=translate("select_report"))
     app.run_match_btn.config(text=translate("run_matching"))
     app.export_llm_btn.config(text=translate("export_llm_analysis"))
-    app.analyze_llm_btn.config(text=translate("analyze_with_llm"))
     
     # Build status with optional detected standard suffix ---
     detected_suffix = ""

@@ -26,7 +26,6 @@ import warnings
 from embedder import SBERTEmbedder  # Create embeddings using Sentence-BERT
 from matcher import match_requirements_to_report  # Match requirements to report paragraphs
 from translations import translate  # Import the translation functions
-from analyze import run_llm_analysis  # Analyze matching results with a local LLM
 from help_info import show_help, show_about  # Import the help and about functions
 from language_manager import switch_language_and_update_ui  # Import the new function
 from menu_manager import configure_export_menu  # Import the new function
@@ -137,12 +136,6 @@ class ComplianceApp(tk.Tk):
         self.text_container = ttk.LabelFrame(bottom_frame, text=translate("requirement_text_and_matches"), padding="5")
         bottom_frame.add(self.text_container, weight=3)
 
-        # Frame for buttons above the text display
-        action_frame = ttk.Frame(self.text_container)
-        action_frame.pack(fill=tk.X, pady=(0, 5))
-
-        self.analyze_llm_btn = ttk.Button(action_frame, text="Analyze with LLM", command=self._run_llm_analysis, state=tk.DISABLED)
-        self.analyze_llm_btn.pack(side=tk.RIGHT)
 
         self.text_display = Text(self.text_container, wrap=tk.WORD, state=tk.DISABLED, font=("Segoe UI", 10))
         self.text_display.pack(fill=tk.BOTH, expand=True)
@@ -201,7 +194,6 @@ class ComplianceApp(tk.Tk):
         self.text_display.config(state=tk.NORMAL)
         self.text_display.delete(1.0, tk.END)
         self.text_display.config(state=tk.DISABLED)
-        self.analyze_llm_btn.config(state=tk.DISABLED)
 
         if req_code in self.requirements_data:
             req_data = self.requirements_data[req_code]
@@ -225,38 +217,6 @@ class ComplianceApp(tk.Tk):
 
         # Display the details for this sub-point, ensuring the key is stripped
         handle_requirement_selection(self, event, sub_point_text=sub_point_text.strip())
-
-    def _run_llm_analysis(self):
-        """Runs LLM analysis with the currently selected sub-point if available."""
-        selected_sub_point = None
-        
-        # Check if a sub-point is selected
-        if self.sub_point_listbox.curselection():
-            sub_point_index = self.sub_point_listbox.curselection()[0]
-            selected_sub_point = self.sub_point_listbox.get(sub_point_index).strip()
-        
-        run_llm_analysis(
-            self, 
-            self.current_req_code, 
-            self.requirements_data, 
-            self.matches, 
-            self.report_paras, 
-            self.status_label, 
-            self.update_idletasks, 
-            translate, 
-            selected_sub_point=selected_sub_point
-        )
-
-    def get_requirements_for_export(self):
-        """Convert requirements_data to the format expected by export functions."""
-        export_data = {}
-        for code, req_data in self.requirements_data.items():
-            if isinstance(req_data, dict):
-                export_data[code] = req_data['full_text']
-            else:
-                # Fallback for old format
-                export_data[code] = req_data
-        return export_data
 
     def run_matching(self):
         """
@@ -291,7 +251,6 @@ class ComplianceApp(tk.Tk):
         self.status_label.config(text=translate("matching_completed_label"))
         self.export_menu.entryconfig(2, state=tk.NORMAL)  # Use index 2 for "Export Matching Results"
         self.export_llm_btn.config(state=tk.NORMAL)
-        self.analyze_llm_btn.config(state=tk.NORMAL)  # Enable LLM analysis after matching
         self._update_current_report_label()
         messagebox.showinfo(translate("completed"), translate("matching_completed"))
 

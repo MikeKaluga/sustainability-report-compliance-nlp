@@ -1,24 +1,20 @@
 """
 This module provides functionality for qualitative analysis of matching results using a local LLM (Llama3).
-It includes a function to send selected requirements and their matched paragraphs to the LLM for analysis
-and display the results in a user-friendly format.
+It includes functions to send requirements and their matched paragraphs to the LLM for batch analysis.
 
 Key Features:
-- Constructs a detailed prompt for the LLM based on the selected requirement and its matches.
+- Constructs a detailed prompt for the LLM based on a requirement and its matches.
 - Sends the prompt to a local LLM API endpoint for analysis.
-- Displays the LLM's response in a new pop-up window.
+- Enriches match data with LLM scores and explanations for export.
 
 Dependencies:
 - Requires the `requests` library for making HTTP requests to the LLM API.
-- Requires `tkinter` for GUI components.
 
 Usage:
-- Call `run_llm_analysis` with the necessary parameters to perform the analysis.
+- Call `analyze_matches_with_llm` to perform batch analysis on a set of matches.
 """
 
 import requests
-import tkinter as tk
-from tkinter import messagebox, Text
 import re
 
 
@@ -130,184 +126,3 @@ def analyze_matches_with_llm(matches, requirements_texts, report_paras):
         enriched_matches.append([(para_idx, sbert_score, score, llm_response)])
 
     return enriched_matches
-
-
-def run_llm_analysis(parent, requirement_code, requirements_data, matches, report_paras, status_label, update_idletasks, translate, selected_sub_point=None):
-    """
-    Performs qualitative analysis of a selected requirement and its top matches using a local LLM.
-
-    This function analyzes the given requirement code and its top-matched paragraphs from the report,
-    constructs a detailed prompt for the LLM, and sends it to a local LLM API endpoint. The LLM's response
-    is displayed in a new pop-up window.
-
-    Args:
-        parent (tk.Tk): The parent Tkinter window.
-        requirement_code (str): The code of the requirement to analyze.
-        requirements_data (dict): A dictionary of requirements with their codes as keys and values that can be
-                                either a string (full text) or a dictionary with 'text' and 'sub_requirements'.
-        matches (list): A list of matching results for each requirement, where each entry contains tuples of
-                        (report paragraph index, similarity score).
-        report_paras (list): A list of paragraphs extracted from the report.
-        status_label (tk.Label): The status label to update the application's status.
-        update_idletasks (function): A function to refresh the UI during long-running operations.
-        translate (function): A function to retrieve translated text for UI elements.
-
-    Raises:
-        requests.exceptions.RequestException: If the LLM API endpoint is unreachable or returns an error.
-
-    Returns:
-        None
-    """
-    if not requirement_code:
-        return
-
-    requirement_info = requirements_data.get(requirement_code)
-
-    if not requirement_info:
-        messagebox.showinfo("LLM Analysis", "Requirement text not found.")
-        return
-
-    if isinstance(requirement_info, dict):
-        requirement_text = requirement_info.get('text', '') or requirement_info.get('full_text', '')
-        sub_requirements = requirement_info.get('sub_requirements', [])
-    else:
-        requirement_text = requirement_info
-        sub_requirements = []
-    
-    # If a specific sub-point is selected, use only that sub-point
-    if selected_sub_point:
-        requirement_text = selected_sub_point
-        sub_requirements = []  # Clear sub_requirements since we're analyzing only one sub-point
-
-    # Check if matches exist for this requirement code
-    if not matches:
-        messagebox.showinfo("LLM Analysis", "No matches data available.")
-        return
-
-    # Find the correct key in matches using the requirement text
-    requirement_matches = None
-    if isinstance(matches, dict):
-        # If a sub-point is selected, use it as the match key
-        if selected_sub_point:
-            match_key = selected_sub_point.strip()
-        else:
-            # Use the full requirement text as the key
-            if isinstance(requirement_info, dict):
-                match_key = requirement_info.get('text', '') or requirement_info.get('full_text', '')
-            else:
-                match_key = requirement_info
-
-        requirement_matches = matches.get(match_key)
-
-        if not requirement_matches:
-            # Try substring match (works reliably for this use case)
-            for key in matches.keys():
-                if match_key in key or key in match_key:
-                    requirement_matches = matches[key]
-                    break
-
-    elif isinstance(matches, list):
-        # If matches is a list, first find the index of requirement_code
-        try:
-            index = list(requirements_data.keys()).index(requirement_code)
-            if index < len(matches):
-                requirement_matches = matches[index]
-        except (ValueError, IndexError):
-            pass
-
-    if not requirement_matches:
-        messagebox.showinfo(
-            "LLM Analysis", f"No matches available to analyze for requirement '{requirement_code}'.")
-        return
-
-    # Build paragraphs from matches, guarding against invalid indices
-    paragraphs = [
-        report_paras[report_idx]
-        for report_idx, score in requirement_matches
-        if isinstance(report_idx, int) and 0 <= report_idx < len(report_paras)
-    ]
-
-    # If no valid paragraphs remain, do not call the LLM
-    if not paragraphs or all(not p.strip() for p in paragraphs):
-        messagebox.showinfo(
-            "LLM Analysis", f"No valid matched paragraphs available to analyze for requirement '{requirement_code}'.")
-        return
-
-    sub_req_prompt_part = ""
-    if sub_requirements:
-        sub_req_analysis_prompts = []
-        for i, sub_req in enumerate(sub_requirements):
-            sub_req_analysis_prompts.append(f"""
-Sub-requirement {i+1}: "{sub_req}"
-- Fulfillment (0-2):
-- Justification:""")
-
-        sub_req_prompt_part = f"""
-First, analyze each of the following sub-requirements individually based on the provided paragraphs. For each, provide a fulfillment score and a brief justification.
-
-{''.join(sub_req_analysis_prompts)}
-
-Finally, provide an overall assessment:
-- Overall Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
-- Overall Justification: ...
-"""
-    else:
-        sub_req_prompt_part = """
-Based on your analysis, please provide your answer in the format:
-Degree of fulfillment (0-2): 0 = not fulfilled, 1 = partially, 2 = completely
-Justification: ...
-"""
-
-    # --- Specialize the prompt with detected standard when available ---
-    detected_std = getattr(parent, "detected_standard", None)
-    if detected_std and detected_std != "UNKNOWN":
-        expertise_line = f"You are an expert in sustainability reporting according to {detected_std}."
-    else:
-        expertise_line = "You are an expert in sustainability reporting according to ESRS and GRI."
-
-    prompt = f"""
-{expertise_line}
-Refer to the following requirement:
-
-"{requirement_text}"
-
-Now analyze the following paragraphs from a sustainability report and answer:
-- Which elements of the requirement are already present in the text?
-- What is missing to fully meet the requirement?
-
-{sub_req_prompt_part}
-
-Paragraphs:
-{chr(10).join(paragraphs)}
-"""    
-    try:
-        status_label.config(text="Querying LLM... Please wait.")
-        update_idletasks()
-
-        response = requests.post("http://localhost:11434/api/generate", json={
-            "model": "llama3",
-            "prompt": prompt,
-            "stream": False
-        }, timeout=120)  # 120-second timeout
-        response.raise_for_status()
-
-        llm_response = response.json().get("response", "No response text found.")
-
-        # Display the result in a new window
-        result_win = tk.Toplevel(parent)
-        result_win.title(f"LLM Analysis for {requirement_code}")
-        result_win.geometry("700x500")
-        result_win.transient(parent)
-
-        text_area = Text(result_win, wrap=tk.WORD, font=(
-            "Segoe UI", 10), padx=10, pady=10)
-        text_area.pack(expand=True, fill=tk.BOTH)
-        text_area.insert(tk.END, llm_response)
-        text_area.config(state=tk.DISABLED)
-
-    except requests.exceptions.RequestException as e:
-        messagebox.showerror("LLM Connection Error",
-                             f"Could not connect to the local LLM at http://localhost:11434.\n"
-                             f"Please ensure the Ollama service is running and Llama3 is installed.\n\nError: {e}")
-    finally:
-        status_label.config(text=translate("matching_completed_label"))
