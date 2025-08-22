@@ -5,7 +5,6 @@ Features (per loaded report):
  - Load multiple report PDFs.
  - For each report: parse paragraphs, embed, match (top-k) per requirement or sub-point.
  - Select a report + requirement + optional sub-point to view matches.
- - Run LLM analysis (current selection) using shared logic from analyze.run_llm_analysis.
  - Export (requirements / paragraphs / matches / LLM analysis) for the currently selected report via shared exporter.
  - Language switching, Help/About reuse existing managers.
 
@@ -63,12 +62,6 @@ class MultiReportApp(tk.Tk):
         # Alias for single-report's selected report path
         self.report_pdf_path = self.current_report_path
 
-        # Provide a no-op placeholder so language_manager can safely call .config(...)
-        class _NoOpWidget:
-            def config(self, *args, **kwargs):  # no-op
-                pass
-        self.analyze_llm_btn = _NoOpWidget()
-
     def update_ui_texts(self):
         """Update all UI widgets with translated text after language switch."""
         # Window title
@@ -109,7 +102,6 @@ class MultiReportApp(tk.Tk):
         self.parse_reports_btn.config(text=parse_text)
         self.run_match_btn.config(text=translate("run_matching"))
         self.export_llm_btn.config(text=translate("export_llm_analysis"))
-        # removed: self.analyze_llm_btn.config(text=translate("analyze_with_llm"))
 
         # Frames / labels
         self.list_container.config(text=translate("requirements_from_standard"))
@@ -432,7 +424,6 @@ class MultiReportApp(tk.Tk):
         self.status_label.config(text=translate("matching_completed_label"))
         self.export_menu.entryconfig(2, state=tk.NORMAL)  # matches export
         self.export_llm_btn.config(state=tk.NORMAL)
-        # removed: self.analyze_llm_btn.config(state=tk.NORMAL)
         self.export_menu.entryconfig(1, state=tk.NORMAL)
         done_msg = translate("matching_completed") if translate("matching_completed") != 'matching_completed' else 'Matching completed.'
         messagebox.showinfo(translate("completed"), done_msg)
@@ -469,7 +460,6 @@ class MultiReportApp(tk.Tk):
         self.text_display.config(state=tk.NORMAL)
         self.text_display.delete(1.0, tk.END)
         self.text_display.config(state=tk.DISABLED)
-        # removed: self.analyze_llm_btn.config(state=tk.DISABLED)
         if code in self.requirements_data:
             req_data = self.requirements_data[code]
             if req_data['sub_points']:
@@ -485,7 +475,6 @@ class MultiReportApp(tk.Tk):
         handle_requirement_selection(self, event, sub_point_text=sp_text.strip())
 
     # ---------------- LLM Analysis -----------------
-    # removed: def _run_llm_analysis_current(self): ...
 
     def _export_llm_all_reports(self):
         # Export only for currently projected report (consistent with single-report exporter)
@@ -521,8 +510,6 @@ class MultiReportApp(tk.Tk):
         para_info = f"{len(self.report_paras)} paras" if self.report_paras else "no paragraphs"
         match_info = f"{len(self.matches)} texts matched" if self.matches else "no matches yet"
         self.current_report_label.config(text=f"Active report: {base}  |  {para_info}  |  {match_info}")
-        # removed: toggle analyze_llm_btn state
-
 
 if __name__ == '__main__':
     app = MultiReportApp()
