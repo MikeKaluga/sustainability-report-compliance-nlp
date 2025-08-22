@@ -134,12 +134,7 @@ class MultiReportApp(tk.Tk):
         return True
 
     def _update_progress_status(self, message, progress=None):
-        """Update status with optional progress indicator."""
-        if progress is not None:
-            try:
-                message = f"{message} ({int(progress)}%)"
-            except Exception:
-                pass
+        """Update status."""
         self.status_label.config(text=message)
         self.update_idletasks()
 
@@ -422,7 +417,7 @@ class MultiReportApp(tk.Tk):
                 base_status = f"Processing report {processed}/{total_reports}: {os.path.basename(path)}"
             self._update_progress_status(base_status, int(processed / total_reports * 100))
             try:
-                all_matches = match_requirements_to_report(self.standard_emb, data['emb'], top_k=5)
+                all_matches = match_requirements_to_report(self.standard_emb, data['emb'])
                 text_matches = {text: all_matches[idx] for idx, text in enumerate(standard_texts) if idx < len(all_matches)}
                 data['matches'] = text_matches
                 # Free memory after matching
