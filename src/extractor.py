@@ -576,33 +576,64 @@ def _process_segment_core(segment, standard_type):
     # Enrich sub-points with parent context
     # We propagate the parent's first sentence (from the last numeric bullet) to its letter/roman children.
     def build_enriched_subpoints_esrs(parts):
+        """
+        Rule:
+        - If a numeric parent (e.g., '15.') has letter/roman children (e.g., '(a)', '(b)'), do NOT emit the numeric
+          as its own sub-point; only emit the children, each prefixed with the parent's first sentence.
+        - If a numeric parent has NO children before the next numeric parent (or end), keep the numeric sub-point.
+        - Letter/roman lines without a preceding numeric parent are kept as-is.
+        """
         enriched = []
-        last_parent_sentence = None
-        last_parent_label = None
-        for p in parts:
+        i = 0
+        while i < len(parts):
+            p = parts[i]
             if not p['is_subpoint']:
+                i += 1
                 continue
+
             if p['subtype'] == 'numeric':
-                # Track numeric parent and keep numeric as a sub-point with its enumeration
-                last_parent_label = _extract_numeric_label(p['text']) or last_parent_label
-                rest = _strip_enum_prefix(p['text'])
-                last_parent_sentence = _first_sentence(rest)
-                if last_parent_label:
-                    enriched.append(f"{last_parent_label}. {rest}".strip())
-                else:
-                    enriched.append(p['text'])
-            elif p['subtype'] in ('letter', 'roman'):
-                # Prefix child with numeric parent enumeration and include parent sentence as context
-                child = _extract_child_label(p['text'], p['subtype'])
-                rest = _strip_enum_prefix(p['text'])
-                if last_parent_label and child:
-                    enum = f"{last_parent_label}({child})."
-                    context = f"{last_parent_sentence} " if last_parent_sentence else ""
-                    enriched.append(f"{enum} {context}{rest}".strip())
-                else:
-                    enriched.append(p['text'])
+                parent_label = _extract_numeric_label(p['text'])
+                parent_rest = _strip_enum_prefix(p['text'])
+                parent_first_sent = _first_sentence(parent_rest)
+
+                # Look ahead until the next numeric subpoint (or end) and collect letter/roman children.
+                j = i + 1
+                has_child = False
+                while j < len(parts):
+                    pj = parts[j]
+                    if pj['is_subpoint'] and pj['subtype'] == 'numeric':
+                        break  # next numeric parent reached
+                    if pj['is_subpoint'] and pj['subtype'] in ('letter', 'roman'):
+                        has_child = True
+                        child_label = _extract_child_label(pj['text'], pj['subtype'])
+                        child_rest = _strip_enum_prefix(pj['text'])
+                        if parent_label and child_label:
+                            enum = f"{parent_label}({child_label})."
+                            context = f"{parent_first_sent} " if parent_first_sent else ""
+                            enriched.append(f"{enum} {context}{child_rest}".strip())
+                        else:
+                            enriched.append(pj['text'])
+                    j += 1
+
+                if not has_child:
+                    # No children: keep the numeric parent as a sub-point.
+                    if parent_label:
+                        enriched.append(f"{parent_label}. {parent_rest}".strip())
+                    else:
+                        enriched.append(p['text'])
+
+                # Skip over inspected range (children and in-between parts)
+                i = j
+                continue
+
+            # Letter/Roman without preceding numeric: keep as-is
+            if p['subtype'] in ('letter', 'roman'):
+                enriched.append(p['text'])
             else:
                 enriched.append(p['text'])
+
+            i += 1
+
         return enriched
 
     def build_enriched_subpoints_gri(parts):
