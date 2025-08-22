@@ -100,6 +100,10 @@ class ComplianceApp(tk.Tk):
 
         self.status_label = ttk.Label(top_frame, text=translate("initial_status"))
         self.status_label.pack(side=tk.LEFT, padx=20)
+        
+        # --- Current report indicator (below top controls) ---
+        self.current_report_label = ttk.Label(main_frame, text="", foreground="#444")
+        self.current_report_label.pack(fill=tk.X, pady=(0, 4))
 
         # --- Bottom frame for displaying results ---
         bottom_frame = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
@@ -142,6 +146,17 @@ class ComplianceApp(tk.Tk):
 
         self.text_display = Text(self.text_container, wrap=tk.WORD, state=tk.DISABLED, font=("Segoe UI", 10))
         self.text_display.pack(fill=tk.BOTH, expand=True)
+
+    def _update_current_report_label(self):
+        """Update the small label showing the active report name, paragraphs, and match status."""
+        if not getattr(self, 'report_pdf_path', None):
+            self.current_report_label.config(text="")
+            return
+        base = os.path.basename(self.report_pdf_path)
+        para_info = f"{len(self.report_paras)} paras" if self.report_paras else "no paragraphs"
+        match_info = f"{len(self.matches)} texts matched" if self.matches else "no matches yet"
+        label_txt = f"Active report: {base}  |  {para_info}  |  {match_info}"
+        self.current_report_label.config(text=label_txt)
 
     def _create_menu(self):
         """
@@ -256,7 +271,7 @@ class ComplianceApp(tk.Tk):
 
         # Re-structure the flat list of matches into a dictionary mapping text -> matches
         self.matches = {}
-        
+
         # Get all texts that were embedded, in the correct order
         standard_texts_for_embedding = []
         for req_data in self.requirements_data.values():
@@ -272,10 +287,12 @@ class ComplianceApp(tk.Tk):
             if i < len(all_matches):
                 self.matches[text.strip()] = all_matches[i]
 
+        # Finalize UI state
         self.status_label.config(text=translate("matching_completed_label"))
         self.export_menu.entryconfig(2, state=tk.NORMAL)  # Use index 2 for "Export Matching Results"
         self.export_llm_btn.config(state=tk.NORMAL)
         self.analyze_llm_btn.config(state=tk.NORMAL)  # Enable LLM analysis after matching
+        self._update_current_report_label()
         messagebox.showinfo(translate("completed"), translate("matching_completed"))
 
 if __name__ == '__main__':

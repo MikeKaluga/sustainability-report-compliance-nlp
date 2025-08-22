@@ -86,7 +86,7 @@ TRANSLATIONS = {
         # --- About Window ---
         "about_title": "About the app for investigating the compliance of sustainability reports with reporting standards using NLP methods",
         "about_text": "This application was developed as part of a bachelor's thesis to analyze the compliance of sustainability reports with established standards (such as GRI and ESRS) using NLP methods.",
-        "about_version": "Version: 1.2",
+        "about_version": "Version: 1.3",
         "about_author": "Author: Mihail Savvateev"
     },
     "de": {
@@ -160,7 +160,7 @@ TRANSLATIONS = {
         # --- About Window ---
         "about_title": "Über die App zur Untersuchung der Übereinstimmung von Nachhaltigkeitsberichten mit Berichtsstandards unter Verwendung von NLP-Methoden",
         "about_text": "Diese Anwendung wurde im Rahmen einer Bachelorarbeit entwickelt, um die Einhaltung von Nachhaltigkeitsberichten mit etablierten Standards (wie GRI und ESRS) mithilfe von NLP-Methoden zu analysieren.",
-        "about_version": "Version: 1.2",
+        "about_version": "Version: 1.3",
         "about_author": "Autor: Mihail Savvateev"
     },
 }

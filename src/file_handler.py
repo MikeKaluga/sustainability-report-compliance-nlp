@@ -77,12 +77,18 @@ def select_report_file(app):
         app.report_paras = extract_paragraphs_from_pdf(app.report_pdf_path)
         app.status_label.config(text=f"{len(app.report_paras)} {translate('paras_found')}")
         app.update_idletasks()
+        # Update active report label with paragraph count
+        if hasattr(app, '_update_current_report_label'):
+            app._update_current_report_label()
 
         app.report_emb = app.embedder.encode(app.report_paras)
         
         app.status_label.config(text=translate("report_ready"))
         app.run_match_btn.config(state=tk.NORMAL)
         app.export_menu.entryconfig(1, state=tk.NORMAL)
+        # Update active report label again (state ready)
+        if hasattr(app, '_update_current_report_label'):
+            app._update_current_report_label()
     except Exception as e:
         messagebox.showerror(translate("error_processing_report"), f"An error occurred:\n{e}")
         app.status_label.config(text=translate("error_try_again"))
