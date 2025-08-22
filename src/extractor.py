@@ -595,6 +595,9 @@ def _process_segment_core(segment, standard_type):
                 parent_label = _extract_numeric_label(p['text'])
                 parent_rest = _strip_enum_prefix(p['text'])
                 parent_first_sent = _first_sentence(parent_rest)
+                
+                # Track seen child labels for this parent to avoid duplicates
+                seen_child_labels = set()
 
                 # Look ahead until the next numeric subpoint (or end) and collect letter/roman children.
                 j = i + 1
@@ -604,8 +607,17 @@ def _process_segment_core(segment, standard_type):
                     if pj['is_subpoint'] and pj['subtype'] == 'numeric':
                         break  # next numeric parent reached
                     if pj['is_subpoint'] and pj['subtype'] in ('letter', 'roman'):
-                        has_child = True
                         child_label = _extract_child_label(pj['text'], pj['subtype'])
+                        
+                        # If we have a label and it's already been seen for this parent, skip it.
+                        if child_label and child_label in seen_child_labels:
+                            j += 1
+                            continue
+                        
+                        if child_label:
+                            seen_child_labels.add(child_label)
+
+                        has_child = True
                         child_rest = _strip_enum_prefix(pj['text'])
                         if parent_label and child_label:
                             enum = f"{parent_label}({child_label})."
