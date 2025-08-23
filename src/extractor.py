@@ -162,8 +162,9 @@ def find_requirements(text):
         # GRI Patterns
         r"^((GRI(?:\s+SRS)?[\- ]?\d{1,3}[\-–—−]\d{1,2})[^\n]*)",
         r"^(Disclosure\s+(\d{1,3}[\-–—−]\d{1,2})[^\n]*)",
-        # German GRI: Angabe 2-1 ...
         r"^((Angabe\s+(\d{1,3}[\-–—−]\d{1,2}))[^\n]*)",
+        # NEW: GRI "Requirement N: ..." headers (appear before disclosures)
+        r"^(Requirement\s+\d+\s*:\s*[^\n]*)",
     ]
     combined_pattern = "|".join(patterns)
     regex = re.compile(combined_pattern, re.MULTILINE)
@@ -191,14 +192,18 @@ def find_requirements(text):
         code = ""
         standard_type = None
 
+        # NEW: Detect GRI "Requirement N: <title>" header
+        if re.search(r"^Requirement\s+\d+\s*:", full_designation, flags=re.IGNORECASE):
+            standard_type = 'gri'
+            m_req = re.search(r"Requirement\s+(\d+)\s*:", full_designation, flags=re.IGNORECASE)
+            if m_req:
+                code = f"Requirement {m_req.group(1)}"
         # GRI detection (English or German: Disclosure/Angabe)
-        if re.search(r"\bGRI\b", full_designation, flags=re.IGNORECASE) or \
+        elif re.search(r"\bGRI\b", full_designation, flags=re.IGNORECASE) or \
            re.search(r"\b(?:Disclosure|Angabe)\s+\d{1,3}[\-–—−]\d{1,2}\b", full_designation, flags=re.IGNORECASE):
             standard_type = 'gri'
             m_code = re.search(r"(\d{1,3}[\-–—−]\d{1,2})", full_designation)
             code = m_code.group(1) if m_code else ""
-            # The line-start anchor `^` makes the complex inline filtering below unnecessary.
-            # We can remove the old filter logic.
         # ESRS detection (code or keywords)
         elif re.search(r"\b[GES]\d{1,2}[\-–—−]\d{1,2}\b", full_designation) or \
              re.search(r"\bDisclosure\s+Requirement\b", full_designation, flags=re.IGNORECASE) or \
@@ -208,7 +213,6 @@ def find_requirements(text):
             if m_code:
                 code = m_code.group(1)
             else:
-                # fallback for Kriterium/Criterion without ESRS code
                 m_krit = re.search(r"(Kriterium\s+\d{1,2}|Criterion\s+\d{1,2})", full_designation, flags=re.IGNORECASE)
                 code = m_krit.group(1) if m_krit else ""
         else:
@@ -290,18 +294,24 @@ def extract_requirements(text):
         match = content_start_pattern.search(cleaned)
         
         if match:
-            # If a starting pattern is found, trim the text to start from there.
             cleaned = cleaned[match.start():]
         else:
-            # Fallback for cases where the title is repeated without a clear list marker.
-            # This removes the "Disclosure Requirement [CODE] – [TITLE]" part.
+            # Fallback: remove duplicate "Disclosure Requirement {CODE} – ..." occurrences
             disclosure_pattern = rf"Disclosure\s+Requirement\s+{re.escape(code)}\s*[\-–—−][^\n]*"
-            # Find all matches and keep only the first one
             matches = list(re.finditer(disclosure_pattern, cleaned, flags=re.IGNORECASE))
             if len(matches) > 1:
-                # Remove all occurrences except the first one
-                for m in reversed(matches[1:]):  # Reverse to maintain indices
+                for m in reversed(matches[1:]):
                     cleaned = cleaned[:m.start()] + cleaned[m.end():]
+
+            # NEW: Fallback for "Requirement N: ..." duplicates if code is "Requirement N"
+            m_req_code = re.match(r'^Requirement\s+(\d+)$', code, flags=re.IGNORECASE)
+            if m_req_code:
+                req_num = m_req_code.group(1)
+                req_title_pattern = rf"Requirement\s+{re.escape(req_num)}\s*:\s*[^\n]*"
+                req_matches = list(re.finditer(req_title_pattern, cleaned, flags=re.IGNORECASE))
+                if len(req_matches) > 1:
+                    for m in reversed(req_matches[1:]):
+                        cleaned = cleaned[:m.start()] + cleaned[m.end():]
 
         return cleaned.strip()
 
