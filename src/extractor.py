@@ -37,6 +37,9 @@ def detect_standard(text, threshold: float = 0.55) -> str:
         r"\bGRI\s*(Standards?)?\b",
         r"\bGRI\s*[1-9]\d{0,2}[-–—−]\d{1,2}\b",
         r"\bUniversal\s+Standards\b|\bTopic[- ]specific\s+Standards\b|\bSector\s+Standards\b",
+        # --- German cues ---
+        r"\bAngabe\s+\d{1,3}[-–—−]\d{1,2}\b",
+        r"\bUniverselle\s+Standards\b|\bThemenspezifische\s+Standards\b|\bSektorstandards\b|\bAllgemeine\s+Standards\b",
     }
 
     def score(txt: str, patterns: set[str]) -> float:
@@ -146,23 +149,24 @@ def find_requirements(text):
                        - The standard type ('esrs' or 'gri')
                        - The full designation/title (str)
     """
-    # Define patterns to match different types of requirements
+    # Define patterns to match different types of requirements.
+    # The `^` anchor ensures we only match at the beginning of a line.
     patterns = [
-        # ESRS Patterns - require a title starting with '–' to be considered a requirement
-        r"(Disclosure\s+Requirement\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",  # e.g., Disclosure Requirement G1-2 – title
-        r"(Disclosure\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",             # e.g., Disclosure G1-2 – title
-        r"(([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",                          # e.g., G1-2 – title
-        r"(Kriterium\s+\d{1,2})",                                 # German: Kriterium 10
-        r"(Criterion\s+\d{1,2})",                                 # English: Criterion 7
-        r"(\b\d{1,2}\.\s+(?:Strategie|Wesentlichkeit|Ziele|Tiefe der Wertschöpfungskette|Verantwortung|Regeln und Prozesse|Kontrolle|Anreizsysteme|Beteiligung von Anspruchsgruppen|Innovations- und Produktmanagement|Inanspruchnahme natürlicher Ressourcen|Ressourcenmanagement|Klimarelevante Emissionen|Arbeitnehmerrechte|Chancengleichheit|Qualifizierung|Menschenrechte|Gemeinwesen|Politische Einflussnahme|Gesetzes- und richtlinienkonformes Verhalten))",  # German numbered sections
-        
-        # GRI Patterns - capture full line including title
-        r"((GRI(?:\s+SRS)?[\- ]?\d{1,3}[\-–—−]\d{1,2})[^\n]*)",           # e.g., GRI 2-1 title
-        r"(Disclosure\s+(\d{1,3}[\-–—−]\d{1,2})[^\n]*)"                  # e.g., Disclosure 2-1 title
-        #r"\b((\d{1,3}[\-–—−]\d{1,2})[^\n]*)",                           # e.g., 2-1 title standalone
+        # ESRS Patterns
+        r"^(Disclosure\s+Requirement\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",
+        r"^(Disclosure\s+([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",
+        r"^(([GES]\d{1,2}[\-–—−]\d{1,2})\s*[\-–—−][^\n]*)",
+        r"^(Kriterium\s+\d{1,2})",
+        r"^(Criterion\s+\d{1,2})",
+        r"^(\b\d{1,2}\.\s+(?:Strategie|Wesentlichkeit|Ziele|Tiefe der Wertschöpfungskette|Verantwortung|Regeln und Prozesse|Kontrolle|Anreizsysteme|Beteiligung von Anspruchsgruppen|Innovations- und Produktmanagement|Inanspruchnahme natürlicher Ressourcen|Ressourcenmanagement|Klimarelevante Emissionen|Arbeitnehmerrechte|Chancengleichheit|Qualifizierung|Menschenrechte|Gemeinwesen|Politische Einflussnahme|Gesetzes- und richtlinienkonformes Verhalten))",
+        # GRI Patterns
+        r"^((GRI(?:\s+SRS)?[\- ]?\d{1,3}[\-–—−]\d{1,2})[^\n]*)",
+        r"^(Disclosure\s+(\d{1,3}[\-–—−]\d{1,2})[^\n]*)",
+        # German GRI: Angabe 2-1 ...
+        r"^((Angabe\s+(\d{1,3}[\-–—−]\d{1,2}))[^\n]*)",
     ]
     combined_pattern = "|".join(patterns)
-    regex = re.compile(combined_pattern)
+    regex = re.compile(combined_pattern, re.MULTILINE)
 
     matches = []
     for m in regex.finditer(text):
@@ -182,41 +186,34 @@ def find_requirements(text):
         if any(re.search(r'\.{2,}\s*\d+\s*$', line) for line in context.split('\n')):
             continue # Skip this match as it's part of a TOC entry.
 
-        # Determine the standard type, code, and full designation
-        full_designation = ""
+        # Determine the standard type, code, and full designation in a language-agnostic way
+        full_designation = m.group(0).strip()
         code = ""
-        
-        # Groups 1-6 are ESRS patterns
-        if m.group(1):  # ESRS with "Disclosure Requirement"
-            standard_type = 'esrs'
-            full_designation = m.group(1).strip()
-            code = m.group(2).strip() if m.group(2) else ""
-        elif m.group(3):  # ESRS with "Disclosure"
-            standard_type = 'esrs'
-            full_designation = m.group(3).strip()
-            code = m.group(4).strip() if m.group(4) else ""
-        elif m.group(5):  # ESRS standalone code
-            standard_type = 'esrs'
-            full_designation = m.group(5).strip()
-            code = m.group(6).strip() if m.group(6) else ""
-        elif m.group(7) or m.group(8) or m.group(9):  # German patterns
-            standard_type = 'esrs'
-            code = m.group(7) or m.group(8) or m.group(9)
-            full_designation = code
-        # Groups 10-12 are GRI patterns
-        elif m.group(10):  # GRI with full designation
+        standard_type = None
+
+        # GRI detection (English or German: Disclosure/Angabe)
+        if re.search(r"\bGRI\b", full_designation, flags=re.IGNORECASE) or \
+           re.search(r"\b(?:Disclosure|Angabe)\s+\d{1,3}[\-–—−]\d{1,2}\b", full_designation, flags=re.IGNORECASE):
             standard_type = 'gri'
-            full_designation = m.group(10).strip()
-            code = m.group(11).strip() if m.group(11) else ""
-        elif m.group(12):  # GRI Disclosure
-            standard_type = 'gri'
-            full_designation = m.group(12).strip()
-            code = m.group(13).strip() if m.group(13) else ""
-        elif m.group(14):  # GRI standalone
-            standard_type = 'gri'
-            full_designation = m.group(14).strip()
-            code = m.group(15).strip() if m.group(15) else ""
-        
+            m_code = re.search(r"(\d{1,3}[\-–—−]\d{1,2})", full_designation)
+            code = m_code.group(1) if m_code else ""
+            # The line-start anchor `^` makes the complex inline filtering below unnecessary.
+            # We can remove the old filter logic.
+        # ESRS detection (code or keywords)
+        elif re.search(r"\b[GES]\d{1,2}[\-–—−]\d{1,2}\b", full_designation) or \
+             re.search(r"\bDisclosure\s+Requirement\b", full_designation, flags=re.IGNORECASE) or \
+             re.search(r"\b(Kriterium|Criterion)\b", full_designation, flags=re.IGNORECASE):
+            standard_type = 'esrs'
+            m_code = re.search(r"([GES]\d{1,2}[\-–—−]\d{1,2})", full_designation, flags=re.IGNORECASE)
+            if m_code:
+                code = m_code.group(1)
+            else:
+                # fallback for Kriterium/Criterion without ESRS code
+                m_krit = re.search(r"(Kriterium\s+\d{1,2}|Criterion\s+\d{1,2})", full_designation, flags=re.IGNORECASE)
+                code = m_krit.group(1) if m_krit else ""
+        else:
+            continue  # Unknown/irrelevant match
+
         if code:
             matches.append((code.strip(), m.start(), standard_type, full_designation))
 
@@ -372,10 +369,23 @@ def _process_gri_segment(segment: str):
     GRI-specific segment processing wrapper.
     Internally calls the core processor with 'gri'.
     """
-    # Trim everything starting from "Compilation requirements" (irrelevant for matching)
-    m = re.search(r'Compilation\s+requirements', segment, flags=re.IGNORECASE)
-    if m:
-        segment = segment[:m.start()].rstrip()
+    # Trim from the earliest occurrence of any boundary marker:
+    # - English: "Compilation requirements" (optional)
+    # - German: "Erläuterungen" (explanations)
+    # - German: "Hintergrundinformationen" (background information)
+    markers = [
+        r'Compilation\s+requirements',
+        r'\bErläuterungen\b',
+        r'\bHintergrundinformationen\b',
+    ]
+    earliest = None
+    for pat in markers:
+        m = re.search(pat, segment, flags=re.IGNORECASE)
+        if m:
+            if earliest is None or m.start() < earliest:
+                earliest = m.start()
+    if earliest is not None:
+        segment = segment[:earliest].rstrip()
     return _process_segment_core(segment, 'gri')
 
 
@@ -653,17 +663,17 @@ def _process_segment_core(segment, standard_type):
         GRI specifics:
         - No numeric parent; subpoints start at a., b., c. (or a), i), etc.).
         - Preserve/normalize enumeration prefixes.
-        - Trim subpoint text to the first real sentence (ignore e.g., i.e., etc., and decimals).
-        - Cut at section-like references such as '2.5' typical for structured lists.
+        - Keep full subpoint text (do not trim to the first sentence).
+        - Do not cut at section-like references (e.g., '2.5'); treat them as part of the text.
         - For roman subpoints, prepend the parent letter's first sentence and show combined enumeration (e.g., a-i.).
         - IMPORTANT: Do not emit a standalone letter (e.g., 'a.') when roman children (i., ii., ...) exist.
         """
         new_result = []
         trimmed = []
-        toc_ref_pattern = re.compile(r'(?<![\w])\d+(?:\.\d+)+(?:\s|\.{2,})')
+        # No reference cutting; keep entire text
 
         # Pending letter subpoint state; flushed only if it has no roman children
-        pending = None  # {'first_sent_parent': str, 'token': str, 'enum_norm': str, 'has_child': bool}
+        pending = None  # {'parent_text': str, 'token': str, 'enum_norm': str, 'has_child': bool}
 
         for p in parts:
             if not p['is_subpoint']:
@@ -680,10 +690,7 @@ def _process_segment_core(segment, standard_type):
                 rest = p['text']
                 raw_token = ""
 
-            # Cut before section-like references (e.g., "2.5 ..." or "2.5....")
-            mref = toc_ref_pattern.search(rest)
-            if mref:
-                rest = rest[:mref.start()].rstrip()
+            # Keep rest intact; do not cut at section-like references
 
             roman_chars = set('ivx')
             is_letter = bool(raw_token) and any(c not in roman_chars for c in raw_token)
@@ -697,35 +704,35 @@ def _process_segment_core(segment, standard_type):
             if is_letter:
                 # Flush previous pending letter if it had no children
                 if pending and not pending['has_child']:
-                    combined = f"{pending['enum_norm']} {pending['first_sent_parent']}".strip()
+                    combined = f"{pending['enum_norm']} {pending['parent_text']}".strip()
                     new_result.append(combined)
                     trimmed.append(combined)
                 # Start new pending letter
-                first_sent_parent = _first_sentence_smart(rest)
+                parent_text = rest.strip()
                 enum_norm = f"{raw_token}." if raw_token else enum_prefix
                 pending = {
-                    'first_sent_parent': first_sent_parent,
+                    'parent_text': parent_text,
                     'token': raw_token,
                     'enum_norm': enum_norm,
                     'has_child': False
                 }
             else:
                 # Roman child: include parent sentence and combined enumeration like 'a-i.'
-                first_sent_child = _first_sentence_smart(rest)
+                child_text = rest.strip()
                 if pending:
                     pending['has_child'] = True
                     enum_combined = f"{pending['token']}-{raw_token}." if pending['token'] and raw_token else f"{raw_token}."
-                    combined_text = f"{pending['first_sent_parent']} {first_sent_child}".strip()
+                    combined_text = f"{pending['parent_text']} {child_text}".strip()
                 else:
                     enum_combined = f"{raw_token}." if raw_token else enum_prefix
-                    combined_text = first_sent_child
+                    combined_text = child_text
                 combined = f"{enum_combined} {combined_text}".strip()
                 new_result.append(combined)
                 trimmed.append(combined)
 
         # After loop: if a letter was pending without children, emit it
         if pending and not pending['has_child']:
-            combined = f"{pending['enum_norm']} {pending['first_sent_parent']}".strip()
+            combined = f"{pending['enum_norm']} {pending['parent_text']}".strip()
             new_result.append(combined)
             trimmed.append(combined)
 
