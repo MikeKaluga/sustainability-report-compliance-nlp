@@ -257,7 +257,47 @@ class MultiReportApp(tk.Tk):
 
     # ---------------- Actions -----------------
     def _select_standard_file(self):
+        # Preserve current reports while switching standard; clear only matches
+        old_std = self.standard_pdf_path
+        preserved = {p: {'paras': d.get('paras'), 'emb': d.get('emb'), 'matches': None}
+                     for p, d in (self.reports or {}).items()}
+        prev_current = self.current_report_path
+
         select_standard_file(self)
+
+        # If a new standard was selected, restore preserved reports and reset UI states accordingly
+        if self.standard_pdf_path and self.standard_pdf_path != old_std and preserved:
+            self.reports = preserved
+
+            # Rebuild report list UI
+            try:
+                self.report_listbox.delete(0, tk.END)
+                for path in self.reports.keys():
+                    self.report_listbox.insert(tk.END, os.path.basename(path))
+            except Exception:
+                pass
+
+            # Restore selection and project
+            target = prev_current if prev_current in self.reports else next(iter(self.reports))
+            self.current_report_path = target
+            self._project_current_report(target)
+
+            # Enable buttons/exports relevant for preserved reports
+            if any(d.get('paras') for d in self.reports.values()):
+                self.parse_reports_btn.config(state=tk.NORMAL)
+                self.export_menu.entryconfig(1, state=tk.NORMAL)  # paragraphs
+                if self.standard_emb is not None:
+                    self.run_match_btn.config(state=tk.NORMAL)
+
+            # Disable matches/LLM export until re-matching is performed for the new standard
+            try:
+                self.export_menu.entryconfig(2, state=tk.DISABLED)  # matches
+            except Exception:
+                pass
+            self.export_llm_btn.config(state=tk.DISABLED)
+
+            # Status hint
+            self._update_progress_status(translate("standard_changed_reports_preserved"))
 
     def _select_reports(self):
         select_reports_multi(self)
@@ -320,8 +360,16 @@ class MultiReportApp(tk.Tk):
             return
         processed = 0
         for path, data in self.reports.items():
-            if not data['paras'] or data['emb'] is None:
+            if not data['paras']:
                 continue
+            # Re-encode paragraphs on the fly if embeddings were freed previously
+            if data.get('emb') is None:
+                try:
+                    data['emb'] = self.embedder.encode(data['paras'])
+                except Exception as e:
+                    print(f"Error encoding paragraphs for {path}: {e}")
+                    continue
+
             processed += 1
             base_status = translate('processing_report', current=processed, total=total_reports, name=os.path.basename(path))
             if base_status == 'processing_report':
