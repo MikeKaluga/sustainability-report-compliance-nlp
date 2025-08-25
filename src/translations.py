@@ -179,7 +179,7 @@ TRANSLATIONS = {
         "about_author": "Autor: Mihail Savvateev",
 
         # --- Für das Multi Report UI ---
-        "multi_report_app_title": "Multi-Bericht Compliance-Analysator",
+        "multi_report_app_title": "Untersuchung der Übereinstimmung von Nachhaltigkeitsberichten",
         "select_reports": "Berichte auswählen",
         "reports": "Berichte",
         "reports_ready_multi": "{count} Berichte ausgewählt. Bereit.",
